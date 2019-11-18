@@ -1,5 +1,14 @@
 mutable struct EventSelectRegister
     val::UInt64
+
+    # Make a slightly more convenient keyword constructor.
+    function EventSelectRegister(; kw...)
+        E = new(zero(UInt64))
+        for (k, v) in pairs(kw)
+            setproperty!(E, k, v)
+        end
+        return E
+    end
 end
 
 function Base.show(io::IO, E::EventSelectRegister)
@@ -10,11 +19,14 @@ function Base.show(io::IO, E::EventSelectRegister)
     println(io)
     return nothing
 end
+hex(i::EventSelectRegister) = hex(i.val)
+
+# Allow this to be written to an IO by forwarding to the wrapped value
+Base.write(io::IO, E::EventSelectRegister) = write(io, value(E))
 
 # We're going to be overloading the `getproperty` and `setproperty` methods for this type,
 # so we need a way to get the full UInt64 out.
 value(E::EventSelectRegister) = getfield(E, :val)
-clear(E::EventSelectRegister) = (E.val = zero(UInt64))
 
 entries(::EventSelectRegister) = (
     event = (0, 7),

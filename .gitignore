@@ -2,3 +2,5 @@
 /dev/
 tags
 *.ll
+*.o
+*.so

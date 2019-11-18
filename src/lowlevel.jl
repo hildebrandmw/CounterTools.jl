@@ -8,6 +8,24 @@ setbits(x, i) = reduce(setbit, i; init = x)
 mask(lo, hi) = (1 << (hi + 1)) - (1 << lo)
 mask(i) = 1 << i
 
+hex(i::Integer) = string(i; base = 16)
+
+# Julia is Base 1 - but the CPU sets are index zero.
+#
+# This `IndexZero` type provides explicit description when we are in a base zero realm.
+struct IndexZero
+    val::UInt
+end
+value(B::IndexZero) = B.val
+
+indexzero(i::Integer) = IndexZero(i-1)
+indexzero(i::IndexZero) = i
+
+Base.getindex(A::AbstractArray, i::IndexZero) = A[value(i) + 1]
+Base.getindex(A::Tuple, i::IndexZero) = A[value(i) + 1]
+
+const INDEX_TYPES = Union{Integer, IndexZero}
+
 # Global enable of performance counters
 #
 # See: Section 18.2 (Architectural Performance Monitoring) of Volume 3 of the Software Developer's Guide, as well as in Chapter 35
@@ -36,14 +54,16 @@ const PMC_MSRS = (
     0xc4,
     0xc6,
     0xc7,
-    0xc8,
+    0xc9,
     0xc9,
 )
 
-msrpath(cpu::Integer) = "/dev/cpu/$cpu/msr"
-function readmsr(cpu::Integer, register::Integer)
+msrpath(cpu::INDEX_TYPES) = "/dev/cpu/$(value(indexzero(cpu)))/msr"
+function readmsr(cpu::INDEX_TYPES, register::Integer)
     # Path to the kernel interface for MSRs
     path = msrpath(cpu)
+
+    println("Reading MSR: $(hex(register))")
 
     # We seek to the register and read a 64 bit int
     val = open(path) do f
@@ -53,7 +73,7 @@ function readmsr(cpu::Integer, register::Integer)
     return val
 end
 
-function writemsr(cpu, register::Integer, value::Integer)
+function writemsr(cpu::INDEX_TYPES, register::Integer, value)
     path = msrpath(cpu)
     open(path; write = true) do f
         seek(f, register)
@@ -67,7 +87,7 @@ Return the number of programable performance counters on your CPU.
 """
 function numcounters()
     # Read from the global control register - use CPU 0 because it always exists
-    val = readmsr(0, IA32_PERF_GLOBAL_CTRL_MSR) 
+    val = readmsr(IndexZero(0), IA32_PERF_GLOBAL_CTRL_MSR) 
 
     # Clear bits 32, 33, and 34 since these correspond to the fixed function registers.
     val = clearbits(val, (32, 33, 34)) 
@@ -79,8 +99,13 @@ end
 # Write 1's to the performance counter locations.
 enablecounters(cpu) = writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, 0x00000007000000ff)
 
+function readcounter(cpu, counter::INDEX_TYPES)
+    cpu = indexzero(cpu)
+    return readmsr(cpu, PMC_MSRS[counter])
+end
+
 """
-rdpmc(i::Integer)
+unsafe_rdpmc(i::Integer)
 
 Read the contents of performance counter `i`.
 If `i` is between 0 and 3, a programable counter is read.
@@ -88,7 +113,8 @@ If `i` is in 2^30, 2^30+1, or 2^30 + 2, a fixed function counter is read.
 
 This function is unsafe since reading from an illegal value will recklessly segfault.
 """
-function rdpmc(i::Integer)
+unsafe_rdpmc(i::IndexZero) = unsafe_rdpmc(value(i))
+function unsafe_rdpmc(i::Integer)
     Base.@_inline_meta
     # This is reverse engineered from `ref.cpp` in the `ref/` directory.
     val = Base.llvmcall(

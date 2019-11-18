@@ -3,6 +3,9 @@ uuid = "14d5c891-3eb4-4046-b085-be47e3b93327"
 authors = ["Mark Hildebrand <mhildebrand@ucdavis.edu>"]
 version = "0.1.0"
 
+[deps]
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+
 [compat]
 julia = "1"
 
