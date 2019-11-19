@@ -63,8 +63,6 @@ function readmsr(cpu::INDEX_TYPES, register::Integer)
     # Path to the kernel interface for MSRs
     path = msrpath(cpu)
 
-    println("Reading MSR: $(hex(register))")
-
     # We seek to the register and read a 64 bit int
     val = open(path) do f
         seek(f, register)

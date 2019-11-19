@@ -1,11 +1,11 @@
 # Struct for programming and collecting counter values.
-mutable struct Monitor{T}
+mutable struct Monitor{T, N}
     # Collection of CPUs for which to collect data.
     cpus::T
-    events::Vector{EventSelectRegister}     
+    events::NTuple{N, EventSelectRegister}     
     isrunning::Bool
 
-    function Monitor(cpus::T, events) where {T}
+    function Monitor(cpus::T, events::NTuple{N, EventSelectRegister}) where {T, N}
         # Make sure nothing crazy's going down!!
         if length(events) > numcounters()
             errmsg = """
@@ -18,7 +18,7 @@ mutable struct Monitor{T}
         end
 
         # Get the original state of the hardware performance counters.
-        monitor = new{T}(
+        monitor = new{T,N}(
             cpus, 
             events, 
             false
@@ -43,7 +43,7 @@ function program!(M::Monitor)
     return nothing
 end
 
-function Base.read(M::Monitor)
+function Base.read(M::Monitor{T, N}) where {T, N}
     # Get the old affinity for this 
     affinity = getaffinity()
     pid = getpid()
@@ -52,9 +52,7 @@ function Base.read(M::Monitor)
         setaffinity(pid, indexzero(cpu))
 
         # Read the events
-        return map(1:length(M.events)) do i
-            unsafe_rdpmc(indexzero(i))
-        end
+        return ntuple(i -> unsafe_rdpmc(indexzero(i)), N) 
     end
 
     # Reset the affinity.
@@ -81,9 +79,10 @@ function cleanup!(M::Monitor)
 end
 
 function test()
-    events = [
-        EventSelectRegister(event = 0xD0, umask = 0x81, usr = true, os = true, en = true)
-    ]
+    events = (
+        EventSelectRegister(event = 0xD0, umask = 0x81, usr = true, os = true, en = true),
+        EventSelectRegister(event = 0xD0, umask = 0x80, usr = true, os = true, en = true),
+    )
 
     cores = 1:20
     return Monitor(cores, events)

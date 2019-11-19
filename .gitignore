@@ -4,3 +4,4 @@ tags
 *.ll
 *.o
 *.so
+*.log
