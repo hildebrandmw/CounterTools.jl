@@ -1,19 +1,44 @@
-mutable struct EventSelectRegister
+
+struct EventSelectRegister
     val::UInt64
 
     # Make a slightly more convenient keyword constructor.
     function EventSelectRegister(; kw...)
-        E = new(zero(UInt64))
+        x = zero(UInt64)
+        fields = _fields()
         for (k, v) in pairs(kw)
-            setproperty!(E, k, v)
+            # Get the start and stop points of this bit field.
+            start, stop = fields[k]
+
+            # Mask the provided value to the requested number of bits.
+            v = v & mask(0, stop - start)
+
+            # Set the corresponding bits in `x`.
+            # Since `x` is initialized to zero, we do not need to explicitly clear these bits.
+            x |= (v << start)
         end
+        E = new(x)
         return E
     end
 end
 
+_fields() = (
+    event = (0, 7),
+    umask = (8, 15),
+    usr   = (16, 16),
+    os    = (17, 17),
+    e     = (18, 18),
+    pc    = (19, 19),
+    int   = (20, 20),
+    en    = (22, 22),
+    inv   = (23, 23),
+    cmask = (24, 31),
+)
+_fields(name) = _fields()[name]
+
 function Base.show(io::IO, E::EventSelectRegister)
     print(io, "Event Select Register: ")
-    for k in keys(entries(E))
+    for k in keys(_fields())
         print(io, " $k=$(string(getproperty(E, k); base = 16))")
     end
     println(io)
@@ -28,43 +53,14 @@ Base.write(io::IO, E::EventSelectRegister) = write(io, value(E))
 # so we need a way to get the full UInt64 out.
 value(E::EventSelectRegister) = getfield(E, :val)
 
-entries(::EventSelectRegister) = (
-    event = (0, 7),
-    umask = (8, 15),
-    usr   = (16, 16),
-    os    = (17, 17),
-    e     = (18, 18),
-    pc    = (19, 19),
-    int   = (20, 20),
-    en    = (22, 22),
-    inv   = (23, 23),
-    cmask = (24, 31),
-)
-
 # For convenience purposes
 function Base.getproperty(E::EventSelectRegister, name::Symbol)
     val = value(E)
     if name == :val
         return val
     else
-        start, stop = entries(E)[name]
+        start, stop = _fields(name)
         return (val & mask(start, stop)) >> start
     end
 end
 
-function Base.setproperty!(E::EventSelectRegister, name::Symbol, x::Integer)
-    val = value(E)
-    if name == :val
-        setfield!(E, :val, x)
-    else
-        start, stop = entries(E)[name]
-        # Clear the original bits
-        val = val & ~mask(start, stop)
-        # Mask the setting value
-        x = x & mask(0, stop - start) 
-        # Set these bits
-        val = val | (x << start)
-        setfield!(E, :val, val)
-    end
-    return x
-end

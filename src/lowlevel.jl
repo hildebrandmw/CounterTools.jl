@@ -85,13 +85,13 @@ Return the number of programable performance counters on your CPU.
 """
 function numcounters()
     # Read from the global control register - use CPU 0 because it always exists
-    val = readmsr(IndexZero(0), IA32_PERF_GLOBAL_CTRL_MSR) 
+    val = readmsr(IndexZero(0), IA32_PERF_GLOBAL_CTRL_MSR)
 
     # Clear bits 32, 33, and 34 since these correspond to the fixed function registers.
-    val = clearbits(val, (32, 33, 34)) 
+    val = clearbits(val, (32, 33, 34))
 
     # The number of set bits is the number of programmable counters.
-    return count_ones(val) 
+    return count_ones(val)
 end
 
 # Write 1's to the performance counter locations.
@@ -111,26 +111,36 @@ If `i` is in 2^30, 2^30+1, or 2^30 + 2, a fixed function counter is read.
 
 This function is unsafe since reading from an illegal value will recklessly segfault.
 """
-unsafe_rdpmc(i::IndexZero) = unsafe_rdpmc(value(i))
 function unsafe_rdpmc(i::Integer)
+    high, low = unsafe_partial_rdpmc(i)
+    return (widen(high) << 32) | low
+end
+
+unsafe_partial_rdpmc(i::IndexZero) = unsafe_partial_rdpmc(value(i))
+function unsafe_partial_rdpmc(i::Integer)
     Base.@_inline_meta
-    # This is reverse engineered from `ref.cpp` in the `ref/` directory.
+    # This is reverse engineered from `ref.cpp` in the `ref/` directory and from Julia's
+    # Tuple constructing syntax.
+    #
+    # The Tuple constructing syntax can be queried using
+    # ```
+    # f(a, b) = (a, b)
+    # @code_llvm f(UInt32(0), UInt32(0))
+    # ```
     val = Base.llvmcall(
         raw"""
         %val = call { i32, i32 } asm sideeffect "rdpmc", "={ax},={dx},{cx},~{dirflag},~{fpsr},~{flags}"(i32 %0)
         %low = extractvalue { i32, i32 } %val, 0
-        %high = extractvalue{ i32, i32 } %val, 1
+        %high = extractvalue { i32, i32 } %val, 1
 
-        %low_64 = zext i32 %low to i64
-        %high_64 = zext i32 %high to i64
-
-        %shift_high_64 = shl i64 %high_64, 32
-        %result = or i64 %low_64, %shift_high_64
-        ret i64 %result
+        %.arr.0 = insertvalue [2 x i32] undef, i32 %high, 0
+        %.arr.1 = insertvalue [2 x i32] %.arr.0, i32 %low, 1
+        ret [2 x i32] %.arr.1
         """,
-        Int64,
+        Tuple{UInt32, UInt32},
         Tuple{Int32},
         convert(Int32, i)
     )
     return val
 end
+

@@ -2,14 +2,14 @@
 mutable struct Monitor{T, N}
     # Collection of CPUs for which to collect data.
     cpus::T
-    events::NTuple{N, EventSelectRegister}     
+    events::NTuple{N, EventSelectRegister}
     isrunning::Bool
 
     function Monitor(cpus::T, events::NTuple{N, EventSelectRegister}) where {T, N}
         # Make sure nothing crazy's going down!!
         if length(events) > numcounters()
             errmsg = """
-            Number of Hardware Events must be less than or equal the number of programmable 
+            Number of Hardware Events must be less than or equal the number of programmable
             performance counters.
 
             On your CPU, this number is $ncounters.
@@ -19,8 +19,8 @@ mutable struct Monitor{T, N}
 
         # Get the original state of the hardware performance counters.
         monitor = new{T,N}(
-            cpus, 
-            events, 
+            cpus,
+            events,
             false
         )
 
@@ -33,7 +33,7 @@ function program!(M::Monitor)
     for cpu in M.cpus
         # Enable counters on this cpu
         enablecounters(cpu)
-        
+
         # Program each of the events to the CPU
         for (i, event) in enumerate(M.events)
             program(cpu, i, event)
@@ -44,7 +44,7 @@ function program!(M::Monitor)
 end
 
 function Base.read(M::Monitor{T, N}) where {T, N}
-    # Get the old affinity for this 
+    # Get the old affinity for this
     affinity = getaffinity()
     pid = getpid()
     results = map(M.cpus) do cpu
@@ -52,21 +52,17 @@ function Base.read(M::Monitor{T, N}) where {T, N}
         setaffinity(pid, indexzero(cpu))
 
         # Read the events
-        return ntuple(i -> unsafe_rdpmc(indexzero(i)), N) 
+        return ntuple(i -> unsafe_rdpmc(indexzero(i)), N)
     end
 
     # Reset the affinity.
+    #
+    # NOTE: `affinity` holds a pointer to a `C` allocated struct.
+    # It is wrapped in a `Wrap` object that will call `free` when Garbage Collected -
+    # preventing a memory leak (hopefully)
     setaffinity(affinity)
     return results
 end
-
-# function Base.read(M::Monitor)
-#     return map(1:length(M.events)) do i
-#         return map(M.cpus) do cpu
-#             readcounter(cpu, i)
-#         end
-#     end
-# end
 
 function cleanup!(M::Monitor)
     for cpu in M.cpus
