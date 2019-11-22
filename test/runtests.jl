@@ -1,6 +1,6 @@
-using PerformanceCounters
+using CounterTools
 using Test
 
-@testset "PerformanceCounters.jl" begin
+@testset "CounterTools.jl" begin
     # Write your own tests here.
 end

@@ -1,4 +1,4 @@
-# PerformanceCounters
+# CounterTools
 
 ## Allowing the `rdpmc` instruction.
 
