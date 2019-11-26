@@ -1,3 +1,15 @@
+const ESR_FIELDS = (
+    event = (0, 7),
+    umask = (8, 15),
+    usr   = (16, 16),
+    os    = (17, 17),
+    e     = (18, 18),
+    pc    = (19, 19),
+    int   = (20, 20),
+    en    = (22, 22),
+    inv   = (23, 23),
+    cmask = (24, 31),
+)
 
 struct EventSelectRegister
     val::UInt64
@@ -5,7 +17,7 @@ struct EventSelectRegister
     # Make a slightly more convenient keyword constructor.
     function EventSelectRegister(; kw...)
         x = zero(UInt64)
-        fields = _fields()
+        fields = ESR_FIELDS
         for (k, v) in pairs(kw)
             # Get the start and stop points of this bit field.
             start, stop = fields[k]
@@ -22,23 +34,9 @@ struct EventSelectRegister
     end
 end
 
-_fields() = (
-    event = (0, 7),
-    umask = (8, 15),
-    usr   = (16, 16),
-    os    = (17, 17),
-    e     = (18, 18),
-    pc    = (19, 19),
-    int   = (20, 20),
-    en    = (22, 22),
-    inv   = (23, 23),
-    cmask = (24, 31),
-)
-_fields(name) = _fields()[name]
-
 function Base.show(io::IO, E::EventSelectRegister)
     print(io, "Event Select Register: ")
-    for k in keys(_fields())
+    for k in keys(ESR_FIELDS)
         print(io, " $k=$(string(getproperty(E, k); base = 16))")
     end
     println(io)
@@ -49,7 +47,7 @@ hex(i::EventSelectRegister) = hex(i.val)
 # Allow this to be written to an IO by forwarding to the wrapped value
 Base.write(io::IO, E::EventSelectRegister) = write(io, value(E))
 
-# We're going to be overloading the `getproperty` and `setproperty` methods for this type,
+# We're going to be overloading the `getproperty` methods for this type,
 # so we need a way to get the full UInt64 out.
 value(E::EventSelectRegister) = getfield(E, :val)
 
@@ -59,7 +57,7 @@ function Base.getproperty(E::EventSelectRegister, name::Symbol)
     if name == :val
         return val
     else
-        start, stop = _fields(name)
+        start, stop = ESR_FIELDS[name]
         return (val & mask(start, stop)) >> start
     end
 end

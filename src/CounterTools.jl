@@ -7,6 +7,9 @@ const PKGDIR = dirname(SRCDIR)
 const DEPSDIR = joinpath(PKGDIR, "deps")
 
 include("lowlevel.jl")
+include("pci.jl")
+include("context.jl")
+
 include("eventregister.jl")
 include("monitor.jl")
 
