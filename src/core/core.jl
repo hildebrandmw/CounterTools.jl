@@ -1,17 +1,19 @@
-# Struct for programming and collecting counter values.
-"""
-Monitor Core events.
-"""
-mutable struct CoreMonitor{T, N}
+# Code for dealing with Core level counters.
+include("lowlevel.jl")
+include("utils.jl")
+include("eventregister.jl")
+
+# This is the high level API for core monitoring
+mutable struct CoreMonitor{T,N}
     # Collection of CPUs for which to collect data.
     cpus::T
+
+    # The events that we are collecting
     events::NTuple{N, EventSelectRegister}
 
-    # Dictionary containing the initial state of the core counters.
-    #
-    # Used to reset upon cleanup.
-    # Maps a (CPU,Counter Number) to the original value.
-    initial_state::Dict{Tuple{Int,Int},Int}
+    # For cleaning up after ourselves
+    initial_state::CounterState
+    initial_affinity::PtrWrap
     isrunning::Bool
 
     """
@@ -19,14 +21,15 @@ mutable struct CoreMonitor{T, N}
 
     Construct a `CoreMonitor` monitoring `events` on `cpus`.
     If `program == true`, then also program the performance counters to on each CPU.
-    Otherwise, the system is left unprogrammed and the user must later call `program!` on 
+    Otherwise, the system is left unprogrammed and the user must later call `program!` on
     the `CoreMonitor`.
     """
     function CoreMonitor(
-            cpus::T, 
+            cpus::T,
             events::NTuple{N, EventSelectRegister};
             program = true
         ) where {T, N}
+
         # Make sure nothing crazy's going down!!
         if length(events) > numcounters()
             errmsg = """
@@ -39,23 +42,20 @@ mutable struct CoreMonitor{T, N}
         end
 
         # Build up the initial values list to save this for later.
-        initial_state = Dict{Tuple{Int, Int}, Int}()
-        for cpu in cpus
-            for i in 1:N
-                initial_state[(cpu, i)] = readmsr(cpu, EVENT_SELECT_MSRS[i])
-            end
-        end
+        initial_state = CounterState(;cpus = cpus)
+        initial_affinity = getaffinity()
 
         # Get the original state of the hardware performance counters.
         monitor = new{T,N}(
             cpus,
             events,
             initial_state,
+            initial_affinity,
             false
         )
 
         finalizer(cleanup!, monitor)
-        program && program!(M)
+        program && program!(monitor)
         return monitor
     end
 end
@@ -82,33 +82,27 @@ The result is a vector, indexed by CPU.
 The elements of the vector are tuples, positionally correlated with events in `M`.
 """
 function Base.read(M::CoreMonitor{T, N}) where {T, N}
-    # Get the old affinity for this
-    affinity = getaffinity()
     pid = getpid()
     results = map(M.cpus) do cpu
         # Set the affinity to this CPU
-        setaffinity(pid, indexzero(cpu))
+        setaffinity(pid, cpu)
 
         # Read the events
-        return ntuple(i -> unsafe_rdpmc(indexzero(i)), N)
+        return ntuple(i -> unsafe_rdpmc(i), N)
     end
 
     # Reset the affinity.
     #
     # NOTE: `affinity` holds a pointer to a `C` allocated struct.
-    # It is wrapped in a `Wrap` object that will call `free` when Garbage Collected -
+    # It is wrapped in a `PtrWrap` object that will call `free` when Garbage Collected -
     # preventing a memory leak (hopefully)
-    setaffinity(affinity)
+    setaffinity(M.initial_affinity)
     return results
 end
 
 function cleanup!(M::CoreMonitor)
     # Set all the counters back to their original state.
-    for cpu in M.cpus
-        for i in 1:length(M.events)
-            program(cpu, i, EventSelectRegister(M.initial_state[(cpu, i)]))
-        end
-    end
+    restore!(M.initial_state)
     M.isrunning = false
     return nothing
 end

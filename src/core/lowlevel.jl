@@ -10,22 +10,6 @@ mask(i) = 1 << i
 
 hex(i::Integer) = string(i; base = 16)
 
-# Julia is Base 1 - but the CPU sets are index zero.
-#
-# This `IndexZero` type provides explicit description when we are in a base zero realm.
-struct IndexZero
-    val::UInt
-end
-value(B::IndexZero) = B.val
-
-indexzero(i::Integer) = IndexZero(i-1)
-indexzero(i::IndexZero) = i
-
-Base.getindex(A::AbstractArray, i::IndexZero) = A[value(i) + 1]
-Base.getindex(A::Tuple, i::IndexZero) = A[value(i) + 1]
-
-const INDEX_TYPES = Union{Integer, IndexZero}
-
 # Global enable of performance counters
 #
 # See: Section 18.2 (Architectural Performance Monitoring) of Volume 3 of the Software Developer's Guide, as well as in Chapter 35
@@ -58,7 +42,8 @@ const PMC_MSRS = (
     0xc9,
 )
 
-msrpath(cpu::INDEX_TYPES) = "/dev/cpu/$(value(indexzero(cpu)))/msr"
+msrpath(cpu::IndexZero) = "/dev/cpu/$(value(cpu))/msr"
+msrpath(cpu::Integer) = msrpath(indexzero(cpu))
 function readmsr(cpu::INDEX_TYPES, register::Integer)
     # Path to the kernel interface for MSRs
     path = msrpath(cpu)
@@ -93,14 +78,41 @@ function numcounters()
     # The number of set bits is the number of programmable counters.
     return count_ones(val)
 end
+const NUMCOUNTERS = numcounters()
+
+# TODO: This is a hack at the moment.
+#
+# Read /dev/cpu.
+# There is one entry per cpu, plus a "microcode" directory.
+# We subtract 1 for the "microcode" directory to get the number of CPUs.
+numcpus() = length(readdir("/dev/cpu")) - 1
 
 # Write 1's to the performance counter locations.
-enablecounters(cpu) = writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, 0x00000007000000ff)
-
-function readcounter(cpu, counter::INDEX_TYPES)
-    cpu = indexzero(cpu)
-    return readmsr(cpu, PMC_MSRS[counter])
+function enablecounters(cpu)
+    config = 0x0000000700000000 | (mask(NUMCOUNTERS)-1)
+    writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, config)
 end
+disablecounters(cpu) = writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, zero(UInt64))
+
+#####
+##### Reading from Counters
+#####
+
+# Wrapper around CounterValues so subtraction automatically handles wrapping
+struct CoreCounterValue
+    value::UInt64
+end
+value(x::CoreCounterValue) = x.value
+
+function Base.:-(x::CoreCounterValue, y::CoreCounterValue)
+    # Test if overflow happened, add a large fixed value.
+    start = value(x) < value(y) ? (UInt(1) << 47) : zero(UInt64)
+    return convert(Int, start + value(x) - value(y))
+end
+
+# This path goes through MSRs and is expected to be much much slower than the rdpmc
+# based instructions.
+readcounter(cpu, counter::INDEX_TYPES) = CoreCounterValue(readmsr(cpu, PMC_MSRS[counter]))
 
 """
 unsafe_rdpmc(i::Integer)
@@ -111,13 +123,13 @@ If `i` is in 2^30, 2^30+1, or 2^30 + 2, a fixed function counter is read.
 
 This function is unsafe since reading from an illegal value will recklessly segfault.
 """
-function unsafe_rdpmc(i::Integer)
+function unsafe_rdpmc(i::INDEX_TYPES)
     high, low = unsafe_partial_rdpmc(i)
-    return (widen(high) << 32) | low
+    return CoreCounterValue((widen(high) << 32) | low)
 end
 
-unsafe_partial_rdpmc(i::IndexZero) = unsafe_partial_rdpmc(value(i))
-function unsafe_partial_rdpmc(i::Integer)
+unsafe_partial_rdpmc(i::Integer) = unsafe_partial_rdpmc(indexzero(i))
+function unsafe_partial_rdpmc(i::IndexZero)
     Base.@_inline_meta
     # This is reverse engineered from `ref.cpp` in the `ref/` directory and from Julia's
     # Tuple constructing syntax.
@@ -139,7 +151,7 @@ function unsafe_partial_rdpmc(i::Integer)
         """,
         Tuple{UInt32, UInt32},
         Tuple{Int32},
-        convert(Int32, i)
+        convert(Int32, value(i))
     )
     return val
 end

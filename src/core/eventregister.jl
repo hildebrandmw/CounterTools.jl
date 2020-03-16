@@ -13,25 +13,31 @@ const ESR_FIELDS = (
 
 struct EventSelectRegister
     val::UInt64
+end
 
-    # Make a slightly more convenient keyword constructor.
-    function EventSelectRegister(; kw...)
-        x = zero(UInt64)
-        fields = ESR_FIELDS
-        for (k, v) in pairs(kw)
-            # Get the start and stop points of this bit field.
-            start, stop = fields[k]
+# This is an inner level constructor that takes the defaults from the outer level
+# constructor and applies them to all keywords
+function _EventSelectRegister(; kw...)
+    x = zero(UInt64)
+    fields = ESR_FIELDS
+    for (k, v) in pairs(kw)
+        # Get the start and stop points of this bit field.
+        start, stop = fields[k]
 
-            # Mask the provided value to the requested number of bits.
-            v = v & mask(0, stop - start)
+        # Mask the provided value to the requested number of bits.
+        v = v & mask(0, stop - start)
 
-            # Set the corresponding bits in `x`.
-            # Since `x` is initialized to zero, we do not need to explicitly clear these bits.
-            x |= (v << start)
-        end
-        E = new(x)
-        return E
+        # Set the corresponding bits in `x`.
+        # Since `x` is initialized to zero, we do not need to explicitly clear these bits.
+        x |= (v << start)
     end
+    E = EventSelectRegister(x)
+    return E
+end
+
+# Apply defaults
+function EventSelectRegister(; usr = true, os = true, en = true, kw...)
+    _EventSelectRegister(; usr = usr, os = os, en = en, kw...)
 end
 
 function Base.show(io::IO, E::EventSelectRegister)
