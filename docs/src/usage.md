@@ -26,6 +26,9 @@ using CounterTools
 # Event numbers and umasks can be found at:
 #   https://download.01.org/perfmon
 #
+# I'm running this on a Cascade Lake processor, so I'm using the CLX collection
+# of counter values.
+#
 # Since we don't know (yet) what instructions are used by Julia's BLAS library, we
 # include events for
 #
