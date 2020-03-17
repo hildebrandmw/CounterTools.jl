@@ -1,6 +1,6 @@
 # Bit maniuplation functions
-clearbit(x, i) = x & ~(1 << i)
-setbit(x, i) = x | (1 << i)
+clearbit(x, i) = x & ~(one(x) << i)
+setbit(x, i) = x | (one(x) << i)
 
 clearbits(x, i) = reduce(clearbit, i; init = x)
 setbits(x, i) = reduce(setbit, i; init = x)
@@ -99,12 +99,12 @@ disablecounters(cpu) = writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, zero(UInt64))
 #####
 
 # Wrapper around CounterValues so subtraction automatically handles wrapping
-struct CoreCounterValue
+struct CounterValue
     value::UInt64
 end
-value(x::CoreCounterValue) = x.value
+value(x::CounterValue) = x.value
 
-function Base.:-(x::CoreCounterValue, y::CoreCounterValue)
+function Base.:-(x::CounterValue, y::CounterValue)
     # Test if overflow happened, add a large fixed value.
     start = value(x) < value(y) ? (UInt(1) << 47) : zero(UInt64)
     return convert(Int, start + value(x) - value(y))
@@ -112,7 +112,7 @@ end
 
 # This path goes through MSRs and is expected to be much much slower than the rdpmc
 # based instructions.
-readcounter(cpu, counter::INDEX_TYPES) = CoreCounterValue(readmsr(cpu, PMC_MSRS[counter]))
+readcounter(cpu, counter::INDEX_TYPES) = CounterValue(readmsr(cpu, PMC_MSRS[counter]))
 
 """
 unsafe_rdpmc(i::Integer)
@@ -125,7 +125,7 @@ This function is unsafe since reading from an illegal value will recklessly segf
 """
 function unsafe_rdpmc(i::INDEX_TYPES)
     high, low = unsafe_partial_rdpmc(i)
-    return CoreCounterValue((widen(high) << 32) | low)
+    return CounterValue((widen(high) << 32) | low)
 end
 
 unsafe_partial_rdpmc(i::Integer) = unsafe_partial_rdpmc(indexzero(i))

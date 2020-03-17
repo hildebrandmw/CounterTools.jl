@@ -9,7 +9,7 @@ mutable struct CoreMonitor{T,N}
     cpus::T
 
     # The events that we are collecting
-    events::NTuple{N, EventSelectRegister}
+    events::NTuple{N, CoreSelectRegister}
 
     # For cleaning up after ourselves
     initial_state::CounterState
@@ -17,7 +17,7 @@ mutable struct CoreMonitor{T,N}
     isrunning::Bool
 
     """
-        CoreMonitor(cpus, events::NTuple{N, EventSelectRegister}; program = true) where {N}
+        CoreMonitor(cpus, events::NTuple{N, CoreSelectRegister}; program = true) where {N}
 
     Construct a `CoreMonitor` monitoring `events` on `cpus`.
     If `program == true`, then also program the performance counters to on each CPU.
@@ -26,7 +26,7 @@ mutable struct CoreMonitor{T,N}
     """
     function CoreMonitor(
             cpus::T,
-            events::NTuple{N, EventSelectRegister};
+            events::NTuple{N, CoreSelectRegister};
             program = true
         ) where {T, N}
 
@@ -109,8 +109,8 @@ end
 
 function test()
     events = (
-        EventSelectRegister(event = 0xD0, umask = 0x81, usr = true, os = true, en = true),
-        EventSelectRegister(event = 0xD0, umask = 0x80, usr = true, os = true, en = true),
+        CoreSelectRegister(event = 0xD0, umask = 0x81, usr = true, os = true, en = true),
+        CoreSelectRegister(event = 0xD0, umask = 0x80, usr = true, os = true, en = true),
     )
 
     cores = 1:20

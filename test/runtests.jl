@@ -53,7 +53,7 @@ end
     old_counter_state = CounterTools.CounterState(; cpus = cpu)
 
     # Program the CPU to record number of retired instructions.
-    esr = CounterTools.EventSelectRegister(; event = 0xC7, umask = 0x01)
+    esr = CounterTools.CoreSelectRegister(; event = 0xC7, umask = 0x01)
     CounterTools.writemsr(cpu, CounterTools.EVENT_SELECT_MSRS[1], esr)
 
     # Quick test to make sure the MSR was programmed appropriately.

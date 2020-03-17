@@ -41,10 +41,10 @@ using CounterTools
 # for use.
 # Trying to use more will generate an error.
 events = (
-    CounterTools.EventSelectRegister(event = 0xC7, umask = 0x01),   # scalar
-    CounterTools.EventSelectRegister(event = 0xC7, umask = 0x04),   # 128b
-    CounterTools.EventSelectRegister(event = 0xC7, umask = 0x10),   # 256b
-    CounterTools.EventSelectRegister(event = 0xC7, umask = 0x40),   # 512b
+    CounterTools.CoreSelectRegister(event = 0xC7, umask = 0x01),   # scalar
+    CounterTools.CoreSelectRegister(event = 0xC7, umask = 0x04),   # 128b
+    CounterTools.CoreSelectRegister(event = 0xC7, umask = 0x10),   # 256b
+    CounterTools.CoreSelectRegister(event = 0xC7, umask = 0x40),   # 512b
 )
 
 # Next, we initialize our arrays and force JIT compilation of the code
