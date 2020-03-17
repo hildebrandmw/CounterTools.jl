@@ -40,16 +40,16 @@ const DEVICE_ID_MASK = 0xFFFF_0000
 const DEVICE_ID_BITSHIFT = 16
 const PCI_ENABLE = 0x8000_0000
 
-pciaddr(bus, dev, fun, off) = PCI_ENABLE |
-                              ((bus & 0xFF) << 16) |
-                              ((dev & 0x1F) << 11) |
-                              ((fun & 0x07) << 8) |
-                              (off & 0xFF)
+# pciaddr(bus, dev, fun, off) = PCI_ENABLE |
+#                               ((bus & 0xFF) << 16) |
+#                               ((dev & 0x1F) << 11) |
+#                               ((fun & 0x07) << 8) |
+#                               (off & 0xFF)
 
 # These are found in uncore performance monitoring guide
 # Under: "Uncore Performance Monitoring State in PCICFG space"
 # Device and Function IDS for Skylake based IMCs
-const SKYLAKE_IMC_REGISTES = (
+const SKYLAKE_IMC_REGISTERS = (
     # IMC 0 - Channels 0, 1, 2
     ((device = 10, fn = 2), (device = 10, fn = 6), (device = 11, fn = 2)),
     # IMC 1 - Channels 0, 1, 2
@@ -85,8 +85,8 @@ function findbusses()
     socket_to_bus = UInt[]
 
     bus_numbers = 0:255
-    device = first(first(SKYLAKE_IMC_REGISTES)).device
-    fn = first(first(SKYLAKE_IMC_REGISTES)).fn
+    device = first(first(SKYLAKE_IMC_REGISTERS)).device
+    fn = first(first(SKYLAKE_IMC_REGISTERS)).fn
 
     for bus in bus_numbers
         # Check to see if the path exists

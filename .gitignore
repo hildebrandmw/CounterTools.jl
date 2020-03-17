@@ -6,3 +6,4 @@ tags
 *.so
 *.log
 *.swp
+/test/programs

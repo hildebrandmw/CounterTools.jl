@@ -66,7 +66,7 @@ end
 #####
 
 function getallcounters(U::UncorePMU{T}) where {T}
-    seek(U.handle, counter(T, 0))
+    seek(U.handle, counter(T, IndexZero(0)))
     # Read all four counters into the pre-allocated buffer
     readbytes!(U.handle, U.buffer, 4 * 8; all = false)
     # Reinterpret the buffer to construct a tuple of CounterValues

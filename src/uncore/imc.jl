@@ -24,8 +24,8 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}; program = true) whe
             return ntuple(3) do channel
                 # Get the path for this particular device
                 bus = socket_to_bus[socket]
-                device = SKYLAKE_IMC_REGISTES[controller][channel].device
-                fn = SKYLAKE_IMC_REGISTES[controller][channel].fn
+                device = SKYLAKE_IMC_REGISTERS[controller][channel].device
+                fn = SKYLAKE_IMC_REGISTERS[controller][channel].fn
 
                 # Construct a monitor
                 handle = PCIHandle(bus, device, fn)
