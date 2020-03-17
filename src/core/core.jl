@@ -1,7 +1,6 @@
 # Code for dealing with Core level counters.
 include("lowlevel.jl")
 include("utils.jl")
-include("eventregister.jl")
 
 # This is the high level API for core monitoring
 mutable struct CoreMonitor{T,N}

@@ -8,6 +8,7 @@ const DEPSDIR = joinpath(PKGDIR, "deps")
 
 include("indexzero.jl")
 include("affinity.jl")
+include("select.jl")
 include("core/core.jl")
 include("uncore/uncore.jl")
 

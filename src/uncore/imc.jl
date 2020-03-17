@@ -8,6 +8,11 @@ mutable struct IMCMonitor{S, C, CH, N}
 end
 
 function IMCMonitor(events::NTuple{N, UncoreSelectRegister}; program = true) where {N}
+    # Check to see if we already have an active monitor.
+    if IMC_RESERVATION[]
+        error("An active IMC Monitor already exists!")
+    end
+
     # Get the mapping from socket to bus
     socket_to_bus = findbusses()
 
@@ -35,18 +40,26 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}; program = true) whe
         pmus,
         events,
     )
+    IMC_RESERVATION[] = true
 
     # Clean up after ourselves
-    finalizer(reset!, monitor)
+    finalizer(monitor) do x
+        reset!(x)
+        IMC_RESERVATION[] = false
+    end
 
     program && program!(monitor)
     return monitor
 end
 
+const IMC_RESERVATION = Ref{Bool}(false)
+
 # Tool for recursively traveling over all the PMUs
+# NOTE: This first definition is pretty much magic :)
+mapleaves(f, X::Tuple...) = map((x...) -> mapleaves(f, x...), X...)
 mapleaves(f, monitor::IMCMonitor) = mapleaves(f, monitor.pmus)
-mapleaves(f, X::Tuple) = map(x -> mapleaves(f, x), X)
 mapleaves(f, X::UncorePMU) = f(X)
+mapleaves(f, X::CounterValue, Y::CounterValue) = f(X, Y)
 
 program!(monitor::IMCMonitor) = mapleaves(x -> _program(x, monitor.events), monitor)
 function _program(x::UncorePMU, events)
@@ -58,3 +71,12 @@ end
 
 reset!(monitor::IMCMonitor) = mapleaves(reset!, monitor)
 Base.read(monitor::IMCMonitor) = mapleaves(getallcounters, monitor)
+
+counterdiff(a, b) = mapleaves(-, a, b)
+aggregate(x) = reduce((x,y) -> x .+ y, tupleflatten(x))
+
+# Rekduction magic to convert the nested tuple into just a flat tuple
+tupleflatten(x::Tuple) = _tupleflatten(x...)
+tupleflatten(x::NTuple{N,T}) where {N,T <: Integer} = (x,)
+_tupleflatten(x::Tuple, y::Tuple...) = (tupleflatten(x)..., _tupleflatten(y...)...)
+_tupleflatten() = ()
