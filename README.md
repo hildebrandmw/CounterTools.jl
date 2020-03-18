@@ -32,4 +32,4 @@ sudo sh -c "echo 2 > /sys/devices/cpu/rdpmc"
 [docs-latest-url]: https://hildebrandmw.github.io/CounterTools.jl/
 
 [travis-img]: https://travis-ci.com/hildebrandmw/CounterTools.jl.svg?branch=master
-[travis-url]: https://travis-ci.org/hildebrandmw/CounterTools.jl
+[travis-url]: https://travis-ci.com/github/hildebrandmw/CounterTools.jl
