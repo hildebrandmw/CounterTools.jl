@@ -1,8 +1,8 @@
 # CounterTools
 
 | **Documentation** | **Status** |
-|:---:|:---:|:---:|
-[![][docs-latest-img]][docs-latest-url] | [![DOI](https://zenodo.org/badge/200740567.svg)](https://zenodo.org/badge/latestdoi/200740567) | [![][travis-img]][travis-url] |
+|:---:|:---:|
+[![][docs-latest-img]][docs-latest-url] | [![][travis-img]][travis-url] |
 
 ## Make CPU MSR (Model Specific Registers) available
 
@@ -29,7 +29,7 @@ sudo sh -c "echo 2 > /sys/devices/cpu/rdpmc"
 ```
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-latest-url]: https://hildebrandmw.github.io/CounterTools.jl/
+[docs-latest-url]: https://hildebrandmw.github.io/CounterTools.jl/dev/
 
 [travis-img]: https://travis-ci.com/hildebrandmw/CounterTools.jl.svg?branch=master
-[travis-url]: https://travis-ci.org/hildebrandmw/CounterTools.jl
+[travis-url]: https://travis-ci.com/github/hildebrandmw/CounterTools.jl
