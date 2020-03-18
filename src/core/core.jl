@@ -53,7 +53,7 @@ mutable struct CoreMonitor{T,N}
             false
         )
 
-        finalizer(cleanup!, monitor)
+        finalizer(reset!, monitor)
         program && program!(monitor)
         return monitor
     end
@@ -92,15 +92,15 @@ function Base.read(M::CoreMonitor{T, N}) where {T, N}
         setaffinity(pid, cpu)
 
         # Read the events
-        return ntuple(i -> unsafe_rdpmc(i), N)
-    end
+        return Record{:cpu}(ntuple(i -> unsafe_rdpmc(i), N))
+    end |> Record{:cpu_set}
 
     # Reset the affinity.
     setaffinity(M.initial_affinity)
     return results
 end
 
-function cleanup!(M::CoreMonitor)
+function reset!(M::CoreMonitor)
     # Set all the counters back to their original state.
     restore!(M.initial_state)
     M.isrunning = false

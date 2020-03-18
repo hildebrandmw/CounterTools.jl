@@ -1,9 +1,9 @@
 # IMC Monitoring
-mutable struct IMCMonitor{S, C, CH, N}
+mutable struct IMCMonitor{T,N}
     # We have one entry in the outer tuple for each socket.
     # Within each socket, we have one entry for each controller.
     # Within each controller, we have one entry for each channel.
-    pmus::NTuple{S, NTuple{C, NTuple{CH, UncorePMU{IMC}}}}
+    sockets::Record{:socket,T}
     events::NTuple{N, UncoreSelectRegister}
 end
 
@@ -17,7 +17,7 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}; program = true) whe
     socket_to_bus = findbusses()
 
     # For now, just hardcode number of sockets, memory channels, etc.
-    pmus = ntuple(2) do socket
+    sockets = ntuple(2) do socket
         # Memory Controllers
         return ntuple(2) do controller
             # Channels
@@ -32,12 +32,12 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}; program = true) whe
                 pmu = UncorePMU{IMC}(handle)
                 reset!(pmu)
                 return pmu
-            end
-        end
-    end
+            end |> Record{:channel}
+        end |> Record{:imc}
+    end |> Record{:socket}
 
     monitor = IMCMonitor(
-        pmus,
+        sockets,
         events,
     )
     IMC_RESERVATION[] = true
@@ -56,12 +56,9 @@ const IMC_RESERVATION = Ref{Bool}(false)
 
 # Tool for recursively traveling over all the PMUs
 # NOTE: This first definition is pretty much magic :)
-mapleaves(f, X::Tuple...) = map((x...) -> mapleaves(f, x...), X...)
-mapleaves(f, monitor::IMCMonitor) = mapleaves(f, monitor.pmus)
-mapleaves(f, X::UncorePMU) = f(X)
-mapleaves(f, X::CounterValue, Y::CounterValue) = f(X, Y)
+mapleaves(f, monitor::IMCMonitor) = mapleaves(f, monitor.sockets)
 
-program!(monitor::IMCMonitor) = mapleaves(x -> _program(x, monitor.events), monitor)
+program!(monitor::IMCMonitor) = mapleaves(x -> _program(x, monitor.events), monitor.sockets)
 function _program(x::UncorePMU, events)
     for (i, evt) in enumerate(events)
         setcontrol!(x, i, evt)
@@ -72,12 +69,3 @@ end
 reset!(monitor::IMCMonitor) = mapleaves(reset!, monitor)
 Base.read(monitor::IMCMonitor) = mapleaves(getallcounters, monitor)
 
-counterdiff(a, b) = mapleaves(-, a, b)
-aggregate(f, x) = reduce(f, tupleflatten(x))
-aggregate(x) = aggregate((a,b) -> a .+ b, x)
-
-# Rekduction magic to convert the nested tuple into just a flat tuple
-tupleflatten(x::Tuple) = _tupleflatten(x...)
-tupleflatten(x::NTuple{N,T}) where {N,T <: Integer} = (x,)
-_tupleflatten(x::Tuple, y::Tuple...) = (tupleflatten(x)..., _tupleflatten(y...)...)
-_tupleflatten() = ()

@@ -11,6 +11,8 @@ function Base.:-(x::CounterValue, y::CounterValue)
     return convert(Int, start + value(x) - value(y))
 end
 
+Base.show(io::IO, x::CounterValue) = print(io, "CV($(value(x)))")
+
 #####
 ##### Bit maniuplation functions
 #####
