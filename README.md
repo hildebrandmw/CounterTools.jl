@@ -9,6 +9,7 @@ These can be made available using
 sudo modprobe msr
 ```
 
+
 ## Allowing the `rdpmc` instruction.
 
 To allow the `rdpmc` instruction that is responsible for reading the performance counters, it may be necessary to run
