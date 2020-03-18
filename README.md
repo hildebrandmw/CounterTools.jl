@@ -1,8 +1,8 @@
 # CounterTools
 
 | **Documentation** | **Status** |
-|:---:|:---:|:---:|
-[![][docs-latest-img]][docs-latest-url] | [![DOI](https://zenodo.org/badge/200740567.svg)](https://zenodo.org/badge/latestdoi/200740567) | [![][travis-img]][travis-url] |
+|:---:|:---:|
+[![][docs-latest-img]][docs-latest-url] | [![][travis-img]][travis-url] |
 
 ## Make CPU MSR (Model Specific Registers) available
 
