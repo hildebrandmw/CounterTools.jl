@@ -10,3 +10,18 @@ function Base.:-(x::CounterValue, y::CounterValue)
     start = value(x) < value(y) ? (UInt(1) << 47) : zero(UInt64)
     return convert(Int, start + value(x) - value(y))
 end
+
+#####
+##### Bit maniuplation functions
+#####
+clearbit(x, i) = x & ~(one(x) << i)
+setbit(x, i) = x | (one(x) << i)
+
+clearbits(x, i) = reduce(clearbit, i; init = x)
+setbits(x, i) = reduce(setbit, i; init = x)
+
+mask(lo::T, hi::T) where {T} = (one(lo) << (hi + 1)) - (1 << lo)
+mask(i) = one(i) << i
+
+hex(i::Integer) = string(i; base = 16)
+

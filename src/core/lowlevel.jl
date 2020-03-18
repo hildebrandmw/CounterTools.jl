@@ -1,15 +1,3 @@
-# Bit maniuplation functions
-clearbit(x, i) = x & ~(one(x) << i)
-setbit(x, i) = x | (one(x) << i)
-
-clearbits(x, i) = reduce(clearbit, i; init = x)
-setbits(x, i) = reduce(setbit, i; init = x)
-
-mask(lo, hi) = (1 << (hi + 1)) - (1 << lo)
-mask(i) = 1 << i
-
-hex(i::Integer) = string(i; base = 16)
-
 # Global enable of performance counters
 #
 # See: Section 18.2 (Architectural Performance Monitoring) of Volume 3 of the Software Developer's Guide, as well as in Chapter 35
@@ -78,7 +66,6 @@ function numcounters()
     # The number of set bits is the number of programmable counters.
     return count_ones(val)
 end
-const NUMCOUNTERS = numcounters()
 
 # TODO: This is a hack at the moment.
 #
@@ -89,7 +76,7 @@ numcpus() = length(readdir("/dev/cpu")) - 1
 
 # Write 1's to the performance counter locations.
 function enablecounters(cpu)
-    config = 0x0000000700000000 | (mask(NUMCOUNTERS)-1)
+    config = 0x0000000700000000 | (mask(numcounters())-1)
     writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, config)
 end
 disablecounters(cpu) = writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, zero(UInt64))

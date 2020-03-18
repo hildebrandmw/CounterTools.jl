@@ -59,6 +59,57 @@ end
 end
 
 @testset "Testing Misc iMC utility functions" begin
+    # Test `tupleflatten`.
+    a = (
+        (
+            (1, 2, 3),
+            (4, 5, 6),
+        ),
+        (
+            (7, 8, 9),
+            (10, 11, 12),
+            (13, 14, 15),
+        )
+    )
+
+    b = (
+        (1, 2, 3),
+        (4, 5, 6),
+        (7, 8, 9),
+        (10, 11, 12),
+        (13, 14, 15)
+    )
+
+    @test CounterTools.tupleflatten(a) == b
+    @test CounterTools.aggregate(a) == reduce((x,y) -> x .+ y, b)
+
+    # Some testing on mapleaves.
+    CounterTools.mapleaves(f, X::Integer...) = f(X...)
+    a2 = (
+        (
+            (2, 3, 4),
+            (5, 6, 7),
+        ),
+        (
+            (8, 9, 10),
+            (11, 12, 13),
+            (14, 15, 16),
+        )
+    )
+    @test CounterTools.mapleaves(x -> x + 1, a) == a2
+
+    a3 = (
+        (
+            (2, 4, 6),
+            (8, 10, 12),
+        ),
+        (
+            (14, 16, 18),
+            (20, 22, 24),
+            (26, 28, 30),
+        )
+    )
+    @test CounterTools.mapleaves(+, a, a) == a3
 end
 
 @testset "Testing iMC Monitor" begin
@@ -75,6 +126,9 @@ end
 
     # Construct a iMC Monitor
     monitor = CounterTools.IMCMonitor(events)
+
+    # Test that creating another monitor throws an error
+    @test_throws ErrorException CounterTools.IMCMonitor(events)
 
     # Compile the reading test program.
     ntimes = 10
@@ -117,9 +171,11 @@ end
     @test socket_0[4] <= 1.2 * expected_read_actions
 
     # The number of write actions should be well less than half the number of read actions.
-    @test socket_0[2] >= expected_write_actions
+    #
+    # The lower and upper bounds are mainly derived from heuristics
+    @test socket_0[2] >= 0.8 * expected_write_actions
     @test socket_0[2] <= 1.2 * expected_write_actions
-    @test socket_0[3] >= expected_write_actions
+    @test socket_0[3] >= 0.8 * expected_write_actions
     @test socket_0[3] <= 1.2 * expected_write_actions
 
     ##### Write Test

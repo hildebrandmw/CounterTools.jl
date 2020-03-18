@@ -59,6 +59,11 @@ mutable struct CoreMonitor{T,N}
     end
 end
 
+function program(cpu, counter, reg::CoreSelectRegister)
+    writemsr(cpu, EVENT_SELECT_MSRS[counter], reg)
+    return nothing
+end
+
 function program!(M::CoreMonitor)
     for cpu in M.cpus
         # Enable counters on this cpu
@@ -91,10 +96,6 @@ function Base.read(M::CoreMonitor{T, N}) where {T, N}
     end
 
     # Reset the affinity.
-    #
-    # NOTE: `affinity` holds a pointer to a `C` allocated struct.
-    # It is wrapped in a `PtrWrap` object that will call `free` when Garbage Collected -
-    # preventing a memory leak (hopefully)
     setaffinity(M.initial_affinity)
     return results
 end
@@ -106,12 +107,3 @@ function cleanup!(M::CoreMonitor)
     return nothing
 end
 
-function test()
-    events = (
-        CoreSelectRegister(event = 0xD0, umask = 0x81, usr = true, os = true, en = true),
-        CoreSelectRegister(event = 0xD0, umask = 0x80, usr = true, os = true, en = true),
-    )
-
-    cores = 1:20
-    return CoreMonitor(cores, events)
-end

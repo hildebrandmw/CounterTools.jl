@@ -73,7 +73,8 @@ reset!(monitor::IMCMonitor) = mapleaves(reset!, monitor)
 Base.read(monitor::IMCMonitor) = mapleaves(getallcounters, monitor)
 
 counterdiff(a, b) = mapleaves(-, a, b)
-aggregate(x) = reduce((x,y) -> x .+ y, tupleflatten(x))
+aggregate(f, x) = reduce(f, tupleflatten(x))
+aggregate(x) = aggregate((a,b) -> a .+ b, x)
 
 # Rekduction magic to convert the nested tuple into just a flat tuple
 tupleflatten(x::Tuple) = _tupleflatten(x...)
