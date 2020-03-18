@@ -29,7 +29,7 @@ sudo sh -c "echo 2 > /sys/devices/cpu/rdpmc"
 ```
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-latest-url]: https://hildebrandmw.github.io/CounterTools.jl/
+[docs-latest-url]: https://hildebrandmw.github.io/CounterTools.jl/dev/
 
 [travis-img]: https://travis-ci.com/hildebrandmw/CounterTools.jl.svg?branch=master
 [travis-url]: https://travis-ci.com/github/hildebrandmw/CounterTools.jl
