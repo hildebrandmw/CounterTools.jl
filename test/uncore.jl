@@ -58,60 +58,6 @@ end
     end
 end
 
-@testset "Testing Misc iMC utility functions" begin
-    # Test `tupleflatten`.
-    a = (
-        (
-            (1, 2, 3),
-            (4, 5, 6),
-        ),
-        (
-            (7, 8, 9),
-            (10, 11, 12),
-            (13, 14, 15),
-        )
-    )
-
-    b = (
-        (1, 2, 3),
-        (4, 5, 6),
-        (7, 8, 9),
-        (10, 11, 12),
-        (13, 14, 15)
-    )
-
-    @test CounterTools.tupleflatten(a) == b
-    @test CounterTools.aggregate(a) == reduce((x,y) -> x .+ y, b)
-
-    # Some testing on mapleaves.
-    CounterTools.mapleaves(f, X::Integer...) = f(X...)
-    a2 = (
-        (
-            (2, 3, 4),
-            (5, 6, 7),
-        ),
-        (
-            (8, 9, 10),
-            (11, 12, 13),
-            (14, 15, 16),
-        )
-    )
-    @test CounterTools.mapleaves(x -> x + 1, a) == a2
-
-    a3 = (
-        (
-            (2, 4, 6),
-            (8, 10, 12),
-        ),
-        (
-            (14, 16, 18),
-            (20, 22, 24),
-            (26, 28, 30),
-        )
-    )
-    @test CounterTools.mapleaves(+, a, a) == a3
-end
-
 @testset "Testing iMC Monitor" begin
     # Monitor DRAM reads and writes
     dram_reads = CounterTools.UncoreSelectRegister(; event = 0x4, umask = 0x3)
@@ -145,7 +91,7 @@ end
     CounterTools.reset!(monitor)
 
     # Accumulate and diff
-    socket_aggregates = CounterTools.aggregate.(CounterTools.counterdiff(post, pre))
+    socket_aggregates = CounterTools.aggregate.(post - pre)
     socket_0 = first(socket_aggregates)
 
     # Compute the expected amount of read traffic.
@@ -188,7 +134,7 @@ end
     CounterTools.reset!(monitor)
 
     # Accumulate and diff
-    socket_aggregates = CounterTools.aggregate.(CounterTools.counterdiff(post, pre))
+    socket_aggregates = CounterTools.aggregate.(post - pre)
     socket_0 = first(socket_aggregates)
 
     # We write to the array once to initialize it, so compute the expected number
@@ -199,6 +145,7 @@ end
     # In this case, we don't have a really good handle on the number of expected read
     # actions, so lets just set it for 1/5th the number of write actions
 
+    @show socket_aggregates
     @show socket_0
     @show expected_read_actions
     @show expected_write_actions
@@ -224,7 +171,7 @@ end
     post = read(monitor)
     CounterTools.reset!(monitor)
 
-    socket_aggregates = CounterTools.aggregate.(CounterTools.counterdiff(post, pre))
+    socket_aggregates = CounterTools.aggregate.(post - pre)
     socket_0 = first(socket_aggregates)
 
     # Expect 5 times through the array for both read and write

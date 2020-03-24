@@ -85,7 +85,6 @@ disablecounters(cpu) = writemsr(cpu, IA32_PERF_GLOBAL_CTRL_MSR, zero(UInt64))
 ##### Reading from Counters
 #####
 
-
 # This path goes through MSRs and is expected to be much much slower than the rdpmc
 # based instructions.
 readcounter(cpu, counter::INDEX_TYPES) = CounterValue(readmsr(cpu, PMC_MSRS[counter]))

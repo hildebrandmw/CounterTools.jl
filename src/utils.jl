@@ -19,6 +19,8 @@ Base.show(io::IO, x::CounterValue) = print(io, "CV($(value(x)))")
 clearbit(x, i) = x & ~(one(x) << i)
 setbit(x, i) = x | (one(x) << i)
 
+isbitset(x, i) = !iszero(x & mask(i))
+
 clearbits(x, i) = reduce(clearbit, i; init = x)
 setbits(x, i) = reduce(setbit, i; init = x)
 

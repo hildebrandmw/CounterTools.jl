@@ -32,7 +32,7 @@ Base.:-(a::R, b::R) where {R <: Record} = mapleaves(-, a, b)
 
 # Aggregate across records
 aggregate(f, X::Record) = aggregate(f, X.data)
-aggregate(f, X::Vector{<:Record}) = reduce(f, aggregate.(f, X))
+aggregate(f, X::Vector) = reduce(f, aggregate.(f, X))
 aggregate(f, X::NTuple{N,<:Record}) where {N} = reduce(f, aggregate.(f, X))
 aggregate(f, X::NTuple{N,<:NTuple}) where {N} = reduce(f, aggregate.(f, X))
 aggregate(f, X) = X

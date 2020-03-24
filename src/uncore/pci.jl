@@ -1,19 +1,19 @@
-mutable struct PCIHandle
+mutable struct Handle
     fd::IOStream
 
     # Open the os file - attach a finalizer so the file is appropriately closed.
-    function PCIHandle(str::String)
+    function Handle(str::String)
         handle = new(open(str; read = true, write = true))
         finalizer(close, handle)
         return handle
     end
 end
-Base.close(P::PCIHandle) = close(P.fd)
+Base.close(P::Handle) = close(P.fd)
 
-# Construct the PCIHandle from a group, bus, device, and offset
+# Construct the Handle from a group, bus, device, and offset
 #
 # This is largely reverse engineered from `pci.cpp` from `https://github.com/opcm/pcm`
-PCIHandle(bus, device, fn) = PCIHandle(pcipath(bus, device, fn))
+Handle(bus, device, fn) = Handle(pcipath(bus, device, fn))
 function pcipath(bus, device, fn)
     bus_str    = string(bus; base = 16, pad = 2)
     device_str = string(device; base = 16, pad = 2)
@@ -27,11 +27,11 @@ function pcipath(bus, device, fn)
     return path
 end
 
-Base.read(P::PCIHandle, ::Type{T}) where {T <: Integer} = read(P.fd, T)
-Base.read(P::PCIHandle, nb::Integer) = read(P.fd, nb)
-Base.readbytes!(P::PCIHandle, x...; kw...) = readbytes!(P.fd, x...; kw...)
-Base.write(P::PCIHandle, v) = write(P.fd, v)
-Base.seek(P::PCIHandle, offset) = seek(P.fd, offset)
+Base.read(P::Handle, ::Type{T}) where {T <: Integer} = read(P.fd, T)
+Base.read(P::Handle, nb::Integer) = read(P.fd, nb)
+Base.readbytes!(P::Handle, x...; kw...) = readbytes!(P.fd, x...; kw...)
+Base.write(P::Handle, v) = write(P.fd, v)
+Base.seek(P::Handle, offset) = seek(P.fd, offset)
 
 # Tools for dealing with PCI
 const DRV_IS_PCI_VENDOR_ID_INTEL = 0x8086
@@ -39,12 +39,6 @@ const VENDOR_ID_MASK = 0x0000_FFFF
 const DEVICE_ID_MASK = 0xFFFF_0000
 const DEVICE_ID_BITSHIFT = 16
 const PCI_ENABLE = 0x8000_0000
-
-# pciaddr(bus, dev, fun, off) = PCI_ENABLE |
-#                               ((bus & 0xFF) << 16) |
-#                               ((dev & 0x1F) << 11) |
-#                               ((fun & 0x07) << 8) |
-#                               (off & 0xFF)
 
 # These are found in uncore performance monitoring guide
 # Under: "Uncore Performance Monitoring State in PCICFG space"
@@ -93,7 +87,7 @@ function findbusses()
         path = pcipath(bus, device, fn)
         ispath(path) || continue
 
-        pci = PCIHandle(path)
+        pci = Handle(path)
 
         # Read the first value from the bus - compare against vendor
         seek(pci, 0)
