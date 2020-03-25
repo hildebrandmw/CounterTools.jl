@@ -26,10 +26,12 @@ function CHAMonitor(
     # Convert the cpu into an IndexZero
     cpu = indexzero(cpu)
 
-    # Get the CHA number masks for this socket.
-    # Convert this into a vector.
-    cha_mask_for_socket = cha_masks()[socket]
-    cha_numbers = [IndexZero(i) for i in 0:27 if isbitset(cha_mask_for_socket, i)]
+    # I used to look at just a subset of the available CHAs, but that seems to misconfigure
+    # the last counters.
+    #
+    # Instead, just running them all seems to do the trick as the kernel/CPU simply
+    # returns "0" for reads to MSRS that are out of range.
+    cha_numbers = IndexZero.(0:27)
 
     # Now, we open up a MSR file to the given CPU
     handle = Handle(msrpath(cpu))
@@ -85,12 +87,20 @@ Base.read(monitor::CHAMonitor) = mapleaves(getallcounters, monitor)
 
 # TODO: Hack for now - find busses by socket for the CAPID 6 register,
 # which provides a bitmask for what CHAs are available.
-function cha_masks()
+#
+# NOTE: The documentation implies that there is a correlation between bit locations
+# and the CHA numbers that are available.
+#
+# However, direct testing and the note found:
+# https://lore.kernel.org/patchwork/patch/893681/
+#
+# Implies that only the number of set bits counts.
+function cha_masks(socket = nothing)
     bus_numbers = 0:255
     device = 30
     fn = 3
 
-    masks = UInt32[]
+    socket_to_mask = UInt32[]
     for bus in bus_numbers
         path = pcipath(bus, device, fn)
         ispath(path) || continue
@@ -102,8 +112,8 @@ function cha_masks()
 
         seek(pci, 0x9C)
         value = read(pci, UInt32)
-        push!(masks, value)
+        push!(socket_to_number, value)
     end
-    return masks
+    return isnothing(socket) ? socket_to_number : socket_to_number[socket]
 end
 

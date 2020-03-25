@@ -17,8 +17,8 @@ end
     device = CounterTools.SKYLAKE_IMC_REGISTERS[1][1].device
     fn = CounterTools.SKYLAKE_IMC_REGISTERS[1][1].fn
 
-    handle = CounterTools.PCIHandle(bus, device, fn)
-    pmu = CounterTools.UncorePMU{CounterTools.IMC}(handle)
+    handle = CounterTools.Handle(bus, device, fn)
+    pmu = CounterTools.IMCUncorePMU(handle)
 
     # First things first - reset the PMU
     CounterTools.reset!(pmu)
@@ -70,11 +70,13 @@ end
         dram_reads,
     )
 
-    # Construct a iMC Monitor
-    monitor = CounterTools.IMCMonitor(events)
+    # Construct a iMC Monitor - attach it to socket 1 (IndexZero(0)) since that is the node
+    # where we use `numactl` to bind the progras.
+    socket = 1
+    monitor = CounterTools.IMCMonitor(events, socket)
 
     # Test that creating another monitor throws an error
-    @test_throws ErrorException CounterTools.IMCMonitor(events)
+    @test_throws ErrorException CounterTools.IMCMonitor(events, socket)
 
     # Compile the reading test program.
     ntimes = 10
@@ -91,8 +93,8 @@ end
     CounterTools.reset!(monitor)
 
     # Accumulate and diff
-    socket_aggregates = CounterTools.aggregate.(post - pre)
-    socket_0 = first(socket_aggregates)
+    socket_0 = CounterTools.aggregate(post - pre)
+    @show socket_0
 
     # Compute the expected amount of read traffic.
     # Remeber that the iMC counters count in transactions and that each transaction
@@ -134,8 +136,7 @@ end
     CounterTools.reset!(monitor)
 
     # Accumulate and diff
-    socket_aggregates = CounterTools.aggregate.(post - pre)
-    socket_0 = first(socket_aggregates)
+    socket_0 = CounterTools.aggregate(post - pre)
 
     # We write to the array once to initialize it, so compute the expected number
     # of read actions as well.
@@ -145,7 +146,6 @@ end
     # In this case, we don't have a really good handle on the number of expected read
     # actions, so lets just set it for 1/5th the number of write actions
 
-    @show socket_aggregates
     @show socket_0
     @show expected_read_actions
     @show expected_write_actions
@@ -171,8 +171,7 @@ end
     post = read(monitor)
     CounterTools.reset!(monitor)
 
-    socket_aggregates = CounterTools.aggregate.(post - pre)
-    socket_0 = first(socket_aggregates)
+    socket_0 = CounterTools.aggregate(post - pre)
 
     # Expect 5 times through the array for both read and write
     expected_read_bytes =  5 * array_size * 64 * ntimes

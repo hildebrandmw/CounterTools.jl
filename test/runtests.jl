@@ -24,5 +24,10 @@ function run_test_program(program; cpunodebind=0, membind=0)
     return nothing
 end
 
+include("record.jl")
+include("indexzero.jl")
+include("utils.jl")
+include("uncore/handle.jl")
+include("uncore/cha.jl")
 include("core.jl")
 include("uncore.jl")

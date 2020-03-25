@@ -3,10 +3,13 @@ mutable struct IMCMonitor{T,N}
     # We have one entry in the outer tuple for each socket.
     # Within each socket, we have one entry for each controller.
     # Within each controller, we have one entry for each channel.
-    imcs::Record{:imc,T}
+    imcs::Record{:socket,T}
     events::NTuple{N, UncoreSelectRegister}
 end
 
+"""
+    IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; [program])
+"""
 function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = true) where {N}
     # Check to see if we already have an active monitor.
     if IMC_RESERVATION[]
@@ -17,7 +20,7 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = t
     socket_to_bus = findbusses()
 
     # Memory Controllers
-    imcs = return ntuple(2) do controller
+    imcs = ntuple(2) do controller
         # Channels
         return ntuple(3) do channel
             # Get the path for this particular device
@@ -27,7 +30,7 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = t
 
             # Construct a monitor
             handle = Handle(bus, device, fn)
-            pmu = IMCUncorePMU{IMC}(handle)
+            pmu = IMCUncorePMU(handle)
             reset!(pmu)
             return Record{:channel}((pmu,))
         end |> Record{:imc}
@@ -37,6 +40,8 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = t
         imcs,
         events,
     )
+
+    @show typeof(monitor)
     IMC_RESERVATION[] = true
 
     # Clean up after ourselves
@@ -51,10 +56,8 @@ end
 
 const IMC_RESERVATION = Ref{Bool}(false)
 
-# Tool for recursively traveling over all the PMUs
-# NOTE: This first definition is pretty much magic :)
+# Extend `mapleaves` to broadcast across the IMCMonitor
 mapleaves(f, monitor::IMCMonitor) = mapleaves(f, monitor.imcs)
-
 program!(monitor::IMCMonitor) = mapleaves(x -> program(x, monitor.events), monitor)
 function program(x::IMCUncorePMU, events)
     for (i, evt) in enumerate(events)

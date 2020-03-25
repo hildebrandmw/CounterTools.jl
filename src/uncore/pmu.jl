@@ -29,8 +29,8 @@ numbytes(x) = numbytes(pmutype(x))
 struct IMC <: PMUType end
 _unitstatus(::IMC)    = 0xF8
 _unitcontrol(::IMC)   = 0xF4
-_counter(::IMC, i) = 0xA0 + value(i) * 0x8
-_control(::IMC, i) = 0xD8 + value(i) * 0x4
+_counter(::IMC, i)    = 0xA0 + value(i) * 0x8
+_control(::IMC, i)    = 0xD8 + value(i) * 0x4
 numcounters(::IMC) = 4
 
 ### CHA Counters
@@ -56,7 +56,7 @@ struct IMCUncorePMU <: AbstractUncorePMU
     # We return counter values as a tuple for even better performance.
     buffer::Vector{UInt8}
 end
-IMCUncorePMU(handle::Handle) = UncorePMU(handle, zeros(UInt8, numbytes(IMC())))
+IMCUncorePMU(handle::Handle) = IMCUncorePMU(handle, zeros(UInt8, numbytes(IMC())))
 pmutype(::IMCUncorePMU) = IMC()
 
 ##### CHA Uncore PMU
@@ -74,6 +74,7 @@ struct CHAUncorePMU <: AbstractUncorePMU
             cha,
             buffer = zeros(UInt8, numbytes(CHA()))
         )
+        resize!(buffer, numbytes(CHA()))
 
         return new(handle, indexzero(cha), buffer)
     end
@@ -136,13 +137,17 @@ end
 #####
 
 function getallcounters(U::AbstractUncorePMU)
-    seek(U.handle, counter(U, IndexZero(0)))
-    # Read all four counters into the pre-allocated buffer
-    readbytes!(U.handle, U.buffer, numbytes(U))
-
-    # Reinterpret the buffer to construct a tuple of CounterValues
-    buffer = reinterpret(UInt64, U.buffer)
-    return ntuple(i -> @inbounds(CounterValue(buffer[i])), numcounters(U))
+    # Need to seek and read since MSR based registers don't automatically progress
+    # the position in the system file.
+    return ntuple(numcounters(U)) do i
+        val = unsafe_read(
+            U.handle,
+            UInt64,
+            counter(U, i);
+            buffer = U.buffer
+        )
+        return CounterValue(val)
+    end
 end
 
 function reset!(U::AbstractUncorePMU)
