@@ -47,7 +47,7 @@ function CoreMonitor(
     initial_affinity = getaffinity()
 
     # Get the original state of the hardware performance counters.
-    monitor = new{T,N}(
+    monitor = CoreMonitor{T,N}(
         cpus,
         events,
         initial_state,
