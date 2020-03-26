@@ -29,14 +29,14 @@ end
 
 Base.read(P::Handle, ::Type{T}) where {T <: Integer} = read(P.fd, T)
 Base.write(P::Handle, v) = write(P.fd, v)
-Base.seek(P::Handle, offset) = seek(P.fd, offset)
+Base.seek(P::Handle, offset::IndexZero) = seek(P.fd, value(offset))
 
 # Wrapping the `pread` calls is MUCH faster because it only requires a single
 # transition into kernel code.
 function Base.unsafe_read(
         P::Handle,
         ::Type{T},
-        offset;
+        offset::IndexZero;
         buffer = Vector{UInt8}(undef, sizeof(T))
     ) where {T}
 
@@ -48,7 +48,7 @@ function Base.unsafe_read(
         fd(P.fd),
         buffer,
         sizeof(T),
-        offset
+        value(offset)
     )
 
     return first(reinterpret(T, buffer))

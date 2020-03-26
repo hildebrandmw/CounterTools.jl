@@ -1,6 +1,4 @@
-# Usage
-
-## Example
+# Core Monitoring Example
 
 Suppose we wanted to measure the number of floating point instructions executed by Julia's BLAS library for a matrix multiply.
 Note - right off the bat, we don't know for sure which class of AVX instructions the pre-built BLAS libraries use (i.e. 128, 256, or 512 bit)
@@ -60,7 +58,7 @@ A * B
 # that subset of CPUs
 #
 # Note that since Julia is Index 1, the CPU range is 25:32 instead of 24:31.
-monitor = CounterTools.CoreMonitor(25:32, events)
+monitor = CounterTools.CoreMonitor(events, 25:32)
 
 # We can read the current values from the monitor using `read`:
 read(monitor)
@@ -79,24 +77,28 @@ read(monitor)
 pre = read(monitor)
 A * B
 post = read(monitor)
-deltas = map((x, y) -> x .- y, post, pre)
+deltas = post - pre
 
 display(deltas)
-# 8-element Array{NTuple{4,Int64},1}:
-#  (0, 0, 7615200000, 0)
-#  (0, 0, 7314600000, 0)
-#  (0, 0, 8016000000, 0)
-#  (0, 0, 8016000000, 0)
-#  (0, 0, 8016000000, 0)
-#  (0, 0, 8016000000, 0)
-#  (0, 0, 7615200000, 0)
-#  (4529, 0, 8016000000, 0)
+# Cpu Set Record with 8 entries:
+#    Cpu Record with 4 entries:
+#       Int64
+#
+# Cpu Set:
+#    Cpu: (0, 0, 7815600000, 0)
+#    Cpu: (0, 0, 7815600000, 0)
+#    Cpu: (0, 0, 7715400000, 0)
+#    Cpu: (0, 0, 7815600000, 0)
+#    Cpu: (0, 0, 7815600000, 0)
+#    Cpu: (0, 0, 7815600000, 0)
+#    Cpu: (0, 0, 7815600000, 0)
+#    Cpu: (4135, 0, 8016000000, 0)
 ```
 
 ### Discussion of Results
 
 Lets break down what the results mean.
-First, each entry in the outer array represents the counter results for one CPU in the CPUs we were gathering metrics on.
+First, each entry in the outer record represents the counter results for one CPU in the CPUs we were gathering metrics on.
 That is, the first entry is CPU 24, the second is CPU 25 etc.
 The entries themselves correspond to counter deltas for each counter in `events`.
 Thus, the first entry is for scalar double-precision floating point operations, the second is for 128b, the third is for 256b, and the fourth is 512b.
@@ -105,7 +107,7 @@ We observe that JULIA's blas library must use AVX-256 instructions.
 Now, does the count make sense?
 Well, lets count up the total number of operations:
 ```julia
-total_avx_256 = sum(x -> x[3], deltas)
+total_avx_256 = CounterTools.aggregate(deltas)[3]
 
 # Multiply by 4 because each AVX-256 instruction operates on 4 Float64s.
 display(4 * total_avx_256)

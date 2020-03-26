@@ -1,4 +1,24 @@
 # Wrapper around CounterValues so subtraction automatically handles wrapping
+"""
+    CounterValue(x::UInt)
+
+A raw value returned from a performance counter.
+This type will automatically detect and correct for counter roll-over.
+
+```julia
+julia> a = CounterTools.CounterValue(0x0)
+CV(0)
+
+julia> b = CounterTools.CounterValue(0x1)
+CV(1)
+
+julia> b - a
+1
+
+julia> UInt(a - b)
+0x00007fffffffffff
+```
+"""
 struct CounterValue
     value::UInt64
 end
@@ -35,23 +55,23 @@ hex(i::Integer) = string(i; base = 16)
 
 msrpath(cpu::IndexZero) = "/dev/cpu/$(value(cpu))/msr"
 msrpath(cpu::Integer) = msrpath(indexzero(cpu))
-function readmsr(cpu::INDEX_TYPES, register::Integer)
+function readmsr(cpu, register)
     # Path to the kernel interface for MSRs
     path = msrpath(cpu)
 
     # We seek to the register and read a 64 bit int
     val = open(path) do f
-        seek(f, register)
+        seek(f, value(indexzero(register)))
         return read(f, Int64)
     end
     return val
 end
 
-function writemsr(cpu::INDEX_TYPES, register::Integer, value)
+function writemsr(cpu::INDEX_TYPES, register, v)
     path = msrpath(cpu)
     open(path; write = true) do f
-        seek(f, register)
-        write(f, value)
+        seek(f, value(indexzero(register)))
+        write(f, v)
     end
     return nothing
 end

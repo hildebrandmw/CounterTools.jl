@@ -1,11 +1,17 @@
-mapleaves(f, X...) = f(X...)
-mapleaves(f, X::Tuple...) = map((x...) -> mapleaves(f, x...), X...)
-mapleaves(f, X::AbstractArray...) = map((x...) -> mapleaves(f, x...), X...)
+mapleaves(f::F, X...) where {F} = f(X...)
+mapleaves(f::F, X::Tuple...) where {F} = map((x...) -> mapleaves(f, x...), X...)
+mapleaves(f::F, X::AbstractArray...) where {F} = map((x...) -> mapleaves(f, x...), X...)
 
 #####
 ##### Record Type for keeping track of what we're measuring
 #####
 
+"""
+    Record{name}(data::T) where {T <: Union{Vector, NTuple}}
+
+Create a named `Record` around `data`.
+The elements of `data` may themselves be `Record`s, resulting in a hierarchical data structure.
+"""
 struct Record{name,T <: Union{Vector, NTuple}}
     data::T
 end
@@ -22,15 +28,33 @@ Base.length(R::Record) = length(R.data)
 Base.iterate(R::Record) = iterate(R.data)
 Base.iterate(R::Record, s) = iterate(R.data, s)
 
+denest(x) = x
+denest(x::Tuple{Tuple}) = denest(first(x))
+
 # Recurse down the record stack, but apply the name to whatever is returned.
+"""
+    mapleaves(f, record::Record) -> Record
+
+Apply `f` to each leaf element of `record`.
+This will recursively descend through hierarchies of `Records` and only apply `f` to scalars.
+
+The returned result will have the same hierarchical structure as `record`
+"""
 function mapleaves(f, R::Record{name}...) where {name}
-    return Record{name}(mapleaves(f, getproperty.(R, :data)...))
+    return Record{name}(denest(mapleaves(f, getproperty.(R, :data)...)))
 end
 
 # Applying a difference to two subsequent records
 Base.:-(a::R, b::R) where {R <: Record} = mapleaves(-, a, b)
 
 # Aggregate across records
+"""
+    aggregate(record::Record)
+    aggregate(f, record::Record)
+
+Reduce over all the leaf (terminal) elements of `record`, applying `f` as the reduction function.
+If `f` is not supplied, it will defult to `(x,y) -> x .+ y`.
+"""
 aggregate(f, X::Record) = aggregate(f, X.data)
 aggregate(f, X::Vector) = reduce(f, aggregate.(f, X))
 aggregate(f, X::NTuple{N,<:Record}) where {N} = reduce(f, aggregate.(f, X))

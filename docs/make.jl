@@ -7,12 +7,17 @@ makedocs(
         prettyurls = get(ENV, "CI", nothing) == "true"
     ),
     sitename    = "CounterTools",
-    doctest     = false,
+    doctest     = true,
     pages       = Any[
         "Getting Started"   => "index.md",
-        "Core Monitoring"   => "core.md",
-        "Uncore Monitoring" => Any[
-            "iMC" => "imc.md",
+        "Manual" => Any[
+            "monitors.md",
+            "records.md",
+            "counters.md",
+        ],
+        "Examples" => Any[
+            "core/example.md",
+            "uncore/imc.md",
         ],
     ],
 )

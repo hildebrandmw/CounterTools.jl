@@ -33,9 +33,9 @@ end
     socket = CounterTools.IndexZero(0)
 
     monitor = CounterTools.CHAMonitor(
-        cpu,
+        events,
         socket,
-        events;
+        cpu;
         filter1 = filter1
     )
 

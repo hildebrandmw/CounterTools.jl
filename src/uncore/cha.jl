@@ -1,5 +1,5 @@
 # CHA Monitoring
-mutable struct CHAMonitor{T,N}
+mutable struct CHAMonitor{T,N} <: AbstractMonitor
     # Collection of CHAUncorePMU
     pmus::Record{:CHA,Vector{T}}
     cha_numbers::Vector{IndexZero{Int}}
@@ -14,13 +14,35 @@ mutable struct CHAMonitor{T,N}
     filter1::CHAFilter1
 end
 
+"""
+    CHAMonitor(events, socket, cpu; [program = true], [filter0], [filter1])
+
+Monitor the Caching Home Agent counters for `events` on a **single** selected CPU `socket`.
+This can gather information such as number of L3 hits and misses.
+Argument `event` should be a `Tuple` of [`CounterTools.UncoreSelectRegister`](@ref) and
+`socket` should be either an `Integer` or `IndexZero`.
+Further, `cpu` is the CPU that will be actually reading the counters.
+For best performance, `cpu` should be located on `socket`.
+
+Filters
+=======
+
+The CHA Performance Monitoring Units allow counters to be filtered in various ways such
+as issuing Core or Thread ID, request opcode etc.
+
+These can be passed via the `filter0` and `filter1` keyword arguments and correspond to the
+CHA filters 0 and 1 repectively.
+
+Note: `filter0` should be a [`CounterTools.CHAFilter0`](@ref) and `filter1` should be a
+[`CounterTools.CHAFilter1`](@ref).
+"""
 function CHAMonitor(
-        cpu,
+        events,
         socket,
-        events;
+        cpu;
         program = true,
-        filter0 = CHAFilter0(),
-        filter1 = CHAFilter1(),
+        filter0::CHAFilter0 = CHAFilter0(),
+        filter1::CHAFilter1 = CHAFilter1(),
     )
 
     # Convert the cpu into an IndexZero

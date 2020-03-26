@@ -55,7 +55,7 @@ function findbusses()
         pci = Handle(path)
 
         # Read the first value from the bus - compare against vendor
-        seek(pci, 0)
+        seek(pci, IndexZero(0))
         value = read(pci, UInt32)
         vendor_id = value & VENDOR_ID_MASK
         device_id = (value & DEVICE_ID_MASK) >> DEVICE_ID_BITSHIFT

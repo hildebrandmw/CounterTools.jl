@@ -12,11 +12,16 @@ function CounterState(; cpus = 1:numcpus(), counters = 1:numcounters())
 
     # Collect the counter states for all cpus
     ncounters = numcounters()
+    buffer = Vector{UInt8}(undef, sizeof(Int))
     for cpu in cpus
-        state[indexzero(cpu)] = open(msrpath(cpu)) do io
-            seek(io, first(EVENT_SELECT_MSRS))
-            return reinterpret(UInt64, read(io, 8 * numcounters()))
+        vec = Int64[]
+        handle = Handle(msrpath(cpu))
+        for i in 1:numcounters()
+            register = EVENT_SELECT_MSRS[i]
+            push!(vec, unsafe_read(handle, Int, register; buffer = buffer))
         end
+        close(handle)
+        state[indexzero(cpu)] = vec
     end
 
     return CounterState(state)

@@ -27,19 +27,19 @@ numbytes(x) = numbytes(pmutype(x))
 
 ### Integrated Memory Controller
 struct IMC <: PMUType end
-_unitstatus(::IMC)    = 0xF8
-_unitcontrol(::IMC)   = 0xF4
-_counter(::IMC, i)    = 0xA0 + value(i) * 0x8
-_control(::IMC, i)    = 0xD8 + value(i) * 0x4
+_unitstatus(::IMC)    = IndexZero(0xF8)
+_unitcontrol(::IMC)   = IndexZero(0xF4)
+_counter(::IMC, i)    = IndexZero(0xA0 + value(i) * 0x8)
+_control(::IMC, i)    = IndexZero(0xD8 + value(i) * 0x4)
 numcounters(::IMC) = 4
 
 ### CHA Counters
 struct CHA <: PMUType end
-_unitstatus(::CHA, i) = 0xE07 + value(i) * 0x10
-_unitcontrol(::CHA, i) = 0xE00 + value(i) * 0x10
-_counter(::CHA, cha, i) = 0xE08 + value(cha) * 0x10 + value(i)
-_control(::CHA, cha, i) = 0xE01 + value(cha) * 0x10 + value(i)
-_extras(x::CHA, cha, i) = 0xE05 + value(cha) * 0x10 + value(i)
+_unitstatus(::CHA, i)   = IndexZero(0xE07 + value(i) * 0x10)
+_unitcontrol(::CHA, i)  = IndexZero(0xE00 + value(i) * 0x10)
+_counter(::CHA, cha, i) = IndexZero(0xE08 + value(cha) * 0x10 + value(i))
+_control(::CHA, cha, i) = IndexZero(0xE01 + value(cha) * 0x10 + value(i))
+_extras(x::CHA, cha, i) = IndexZero(0xE05 + value(cha) * 0x10 + value(i))
 writetype(::CHA) = UInt64
 numcounters(::CHA) = 4
 
@@ -139,15 +139,11 @@ end
 function getallcounters(U::AbstractUncorePMU)
     # Need to seek and read since MSR based registers don't automatically progress
     # the position in the system file.
-    return ntuple(numcounters(U)) do i
-        val = unsafe_read(
-            U.handle,
-            UInt64,
-            counter(U, i);
-            buffer = U.buffer
-        )
-        return CounterValue(val)
-    end
+    a = unsafe_read(U.handle, UInt64, counter(U, 1); buffer = U.buffer)
+    b = unsafe_read(U.handle, UInt64, counter(U, 2); buffer = U.buffer)
+    c = unsafe_read(U.handle, UInt64, counter(U, 3); buffer = U.buffer)
+    d = unsafe_read(U.handle, UInt64, counter(U, 4); buffer = U.buffer)
+    return CounterValue.((a, b, c, d))
 end
 
 function reset!(U::AbstractUncorePMU)

@@ -3,7 +3,7 @@
     handle = CounterTools.Handle("/dev/cpu/0/msr")
 
     # Read the initial state of the CHA 0 control register
-    location = 0xE01
+    location = CounterTools.IndexZero(0xE01)
     seek(handle, location)
 
     # Test reading and unsafe_reading

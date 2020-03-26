@@ -1,5 +1,5 @@
 # IMC Monitoring
-mutable struct IMCMonitor{T,N}
+mutable struct IMCMonitor{T,N} <: AbstractMonitor
     # We have one entry in the outer tuple for each socket.
     # Within each socket, we have one entry for each controller.
     # Within each controller, we have one entry for each channel.
@@ -8,7 +8,12 @@ mutable struct IMCMonitor{T,N}
 end
 
 """
-    IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; [program])
+    IMCMonitor(events, socket; [program = true])
+
+Monitor the Integrated Memory Controller (IMC) for `events` on a **single**
+selected CPU `socket`. This can gather information such as number of DRAM read and write
+operations.  Argument `event` should be a `Tuple` of [`CounterTools.UncoreSelectRegister`](@ref)
+and `socket` should be either an `Integer` or `IndexZero`.
 """
 function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = true) where {N}
     # Check to see if we already have an active monitor.
@@ -68,5 +73,5 @@ function program(x::IMCUncorePMU, events)
 end
 
 reset!(monitor::IMCMonitor) = mapleaves(reset!, monitor)
-Base.read(monitor::IMCMonitor) = mapleaves(getallcounters, monitor)
+Base.read(monitor::IMCMonitor{T,N}) where {T,N} = mapleaves(getallcounters, monitor)
 

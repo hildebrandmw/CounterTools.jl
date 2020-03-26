@@ -3,7 +3,7 @@ include("lowlevel.jl")
 include("utils.jl")
 
 # This is the high level API for core monitoring
-mutable struct CoreMonitor{T,N}
+mutable struct CoreMonitor{T,N} <: AbstractMonitor
     # Collection of CPUs for which to collect data.
     cpus::T
 
@@ -14,49 +14,50 @@ mutable struct CoreMonitor{T,N}
     initial_state::CounterState
     initial_affinity::PtrWrap
     isrunning::Bool
+end
 
-    """
-        CoreMonitor(cpus, events::NTuple{N, CoreSelectRegister}; program = true) where {N}
+"""
+    CoreMonitor(events, cpus; program = true)
 
-    Construct a `CoreMonitor` monitoring `events` on `cpus`.
-    If `program == true`, then also program the performance counters to on each CPU.
-    Otherwise, the system is left unprogrammed and the user must later call `program!` on
-    the `CoreMonitor`.
-    """
-    function CoreMonitor(
-            cpus::T,
-            events::NTuple{N, CoreSelectRegister};
-            program = true
-        ) where {T, N}
+Construct a `CoreMonitor` monitoring `events` on `cpus`.
+Arguments `events` should be a `Tuple` of [`CounterTools.CoreSelectRegister`](@ref) and
+`cpus` is any iterable collection of CPU indices.
 
-        # Make sure nothing crazy's going down!!
-        if length(events) > numcounters()
-            errmsg = """
-            Number of Hardware Events must be less than or equal the number of programmable
-            performance counters.
+If `program == true`, then also program the performance counters to on each CPU.
+"""
+function CoreMonitor(
+        events::NTuple{N, CoreSelectRegister},
+        cpus::T;
+        program = true
+    ) where {T, N}
 
-            On your CPU, this number is $ncounters.
-            """
-            throw(ArgumentError(errmsg))
-        end
+    # Make sure nothing crazy's going down!!
+    if length(events) > numcounters()
+        errmsg = """
+        Number of Hardware Events must be less than or equal the number of programmable
+        performance counters.
 
-        # Build up the initial values list to save this for later.
-        initial_state = CounterState(;cpus = cpus)
-        initial_affinity = getaffinity()
-
-        # Get the original state of the hardware performance counters.
-        monitor = new{T,N}(
-            cpus,
-            events,
-            initial_state,
-            initial_affinity,
-            false
-        )
-
-        finalizer(reset!, monitor)
-        program && program!(monitor)
-        return monitor
+        On your CPU, this number is $ncounters.
+        """
+        throw(ArgumentError(errmsg))
     end
+
+    # Build up the initial values list to save this for later.
+    initial_state = CounterState(;cpus = cpus)
+    initial_affinity = getaffinity()
+
+    # Get the original state of the hardware performance counters.
+    monitor = new{T,N}(
+        cpus,
+        events,
+        initial_state,
+        initial_affinity,
+        false
+    )
+
+    finalizer(reset!, monitor)
+    program && program!(monitor)
+    return monitor
 end
 
 function program(cpu, counter, reg::CoreSelectRegister)
@@ -78,13 +79,6 @@ function program!(M::CoreMonitor)
     return nothing
 end
 
-"""
-    read(M::CoreMonitor) -> Vector{<:Tuple}
-
-Read all events from all CPUs in `M`.
-The result is a vector, indexed by CPU.
-The elements of the vector are tuples, positionally correlated with events in `M`.
-"""
 function Base.read(M::CoreMonitor{T, N}) where {T, N}
     pid = getpid()
     results = map(M.cpus) do cpu

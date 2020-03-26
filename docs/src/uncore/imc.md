@@ -1,4 +1,4 @@
-# Integrated Memory Controller (iMC) Monitoring
+# Integrated Memory Controller (iMC) Monitoring Example
 
 CounterTools allows for programming and reading from the performance counters within the iMC.
 This is primarily done through the [`CounterTools.IMCMonitor`](@ref) data type.
@@ -28,54 +28,44 @@ events = (
     CounterTools.UncoreSelectRegister(; event = 0x4, umask = 0xC),
 )
 ```
-Observe that we're now using [`CounterTools.UncoreSelectRegisters`](@ref) instead of [`CounterTools.CoreSelectRegisters`](@ref).
+Observe that we're now using [`CounterTools.UncoreSelectRegister`](@ref) instead of [`CounterTools.CoreSelectRegister`](@ref).
 This is because the bit fields of the Uncore selection registers are slightly different than the Core selection registers.
-Note that construction of a [`IMCMonitor`](@ref) **requires** `CounterTools.UncoreSelectRegisters`.
+Note that construction of a [`CounterTools.IMCMonitor`](@ref) **requires** `CounterTools.UncoreSelectRegisters`.
 
-With that, lets instantiate a `IMCMonitor`!
+With that, lets instantiate a [`CounterTools.IMCMonitor`](@ref)!
+Note that we have to pass which socket we want to monitor.
+Since we've restricted Julia to running on socket 0 using `numactl`, this is the socket we pass to `IMCMonitor`.
+We wrap it in a [`CounterTools.IndexZero`](@ref) to indicate that we really do want a literal 0.
+We could have just as easily passed the integer `1` to achieve the same result.
 ```julia
-monitor = CounterTools.IMCMonitor(events)
+monitor = CounterTools.IMCMonitor(events, CounterTools.IndexZero(0))
 ```
 This automates the process of programming and starting the iMC performance counters.
 We can now collect data from the counters:
 ```julia
 data = read(monitor)
 display(data)
+
+# Socket Record with 2 entries:
+#    Imc Record with 3 entries:
+#       Channel Record with 4 entries:
+#          CounterTools.CounterValue
+#
+# Socket:
+#    Imc:
+#       Channel: (CV(873907), CV(437771), CV(0), CV(0))
+#       Channel: (CV(877335), CV(438516), CV(0), CV(0))
+#       Channel: (CV(872746), CV(438298), CV(0), CV(0))
+#    Imc:
+#       Channel: (CV(865708), CV(432371), CV(0), CV(0))
+#       Channel: (CV(866270), CV(430789), CV(0), CV(0))
+#       Channel: (CV(867648), CV(431401), CV(0), CV(0))
 ```
-**WHOA**: What the heck is going on??
-What is returned by reading data is a somewhat gnarly nested `Tuple`, but there is a method to this madness.
-I'm running this on a 2-socket system, so we have performance counter data for each socket.
-This is the **outermost** tuple of the returned data.
-```julia
-# Performance Counters for Socket 0
-data[1]
-# Performance Counters for Socket 1
-data[2]
-```
-Next, each socket has two memory controllers.
-This is the next level of hierarchy:
-```julia
-# Socket 0, iMC 0
-data[1][1]
-# Socket 0, iMC 1
-data[1][2]
-```
-Each iMC has 3 channels.
-This is the **next** level of hierarchy:
-```julia
-# Socket 0, iMC 0, Channel 0
-data[1][1][1]
-# Socket 0, iMC 0, Channel 1
-data[1][1][2]
-# Socket 0, iMC 0, Channel 2
-data[1][1][3]
-```
-Finally, each iMC channel has 4 programmable counters.
-This is the **last** level of hierarchy, represented as a 4-tuple of [`CounterValue`](@ref)s
-The counter values in this last tuple correspond elementwise to the original events used to construct the `IMCMonitor`.
-So, `data[1][1][1][1]` is the **counter value** of DRAM reads for channel 0, iMC 0, Socket 0.
-Similarly, `data[1][1][1][2]` is the value for DRAM writes.
-Since we didn't program counters 2 or 3 (speaking in index zero terms), those values are simply 0.
+Lets tease out what's going on here.
+The top level is a `Record{:socket}`, which contains the counter results for our socket of interest.
+Each socket has two Integrated Memory Controllers, which are modeled by the `Record{:imc}` inside the outermost record.
+Furthermore, each IMC has three Channels, which are the three `Record{:channel}` inside each IMC.
+Finally, each channel has four counters, which correspond to the entries in the `Record{:channel}`.
 
 Now, this can be a lot to take in.
 Fortunately, we have some helpful tool!
@@ -91,19 +81,16 @@ sum(A);
 post = read(monitor);
 
 # Now, we aggregate counters across sockets
-aggregate = CounterTools.aggregate.(CounterTools.counterdiff(post, pre))
-# (
-#    (1474725, 118291, 0, 0),   # <- Aggregate for Socket 0
-#    (136433, 113153, 0, 0)     # <- Aggregate for Socket 1
-# )
+aggregate = CounterTools.aggregate(post - pre)
+# (1491562, 250617, 0, 0)
 ```
 Wow! That's much cleaner.
 This helpful command essentially adds the counter values for all the channels across each socket and returns the sum.
 We observe that Socket 0 (the one we're running Julia on) has a large number of reads (the first entry in the Tuple)
 Lets calculate the corresponding number of bytes read
 ```julia
-bytes_read = aggregate[1][1] * 64
-# 94382400
+bytes_read = aggregate[1] * 64
+# 95459968
 
 sizeof(A)
 # 80000000
@@ -118,6 +105,6 @@ It's easy to make changes.
 If, for example, you want to take the maximum across each channel (I'm not sure at the moment why you'd want to, but lets say that you do).
 It's as simple as
 ```julia
-CounterTools.aggregate(max, CounterTools.counterdiff(post, pre))
-# ((247148, 20058, 0, 0), (23139, 19558, 0, 0))
+CounterTools.aggregate(max, post - pre)
+# (252053, 42442, 0, 0)
 ```

@@ -49,6 +49,34 @@ function Base.getindex(reg::BitField, name::Symbol)
 end
 
 ### Core Event Select
+"""
+    CoreSelectRegister(; kw...)
+
+Construct a bitmask for programming `Core` level counters.
+
+Keywords
+========
+- `event::UInt`: Select the event to be counted. Default: `0x00`
+- `umask::Uint`: Select the subevent to be counted within the selected event. Default: `0x00`
+- `usr::Bool`: Specifies the counter should be active when the processor is operating at
+    privilege modes 1, 2, and 3. Default: `true`.
+- `os::Bool`: Specifies the counter should be active when the processor is operating at
+    privilege mode 0. Default: `true`.
+- `e::Bool`: Edge detect. Default: `false`.
+- `en::Bool`: Enable the counter. Default: `true`.
+- `inv::Bool`: When set, inverts the counter-mask (CMASK) comparison, so that both greater
+    than or equal to and less than comparisons can be made (0: greater than or equal; 1:
+    less than). Note if counter-mask is programmed to zero, INV flag is ignored. Default: `false`.
+- `cmask::Bool`: When this field is not zero, a logical processor compares this mask to the
+    events count of the detected microarchitectural condition during a single cycle. If the
+    event count is greater than or equal to this mask, the counter is incremented by one.
+    Otherwise the counter is not incremented.
+
+    This mask is intended for software to characterize microarchitectural conditions that
+    can count multiple occurrences per cycle (for example, two or more instructions retired
+    per clock; or bus queue occupations). If the counter-mask field is 0, then the counter
+    is incremented each cycle by the event count associated with multiple occurrences.
+"""
 struct CoreSelectRegister <: BitField
     val::UInt64
 end
@@ -60,8 +88,8 @@ function fields(::Type{CoreSelectRegister})
         usr   = (16, 16),
         os    = (17, 17),
         e     = (18, 18),
-        pc    = (19, 19),
-        int   = (20, 20),
+        #pc    = (19, 19), # not implemented on Skylake+
+        #int   = (20, 20), # not worrying about this
         en    = (22, 22),
         inv   = (23, 23),
         cmask = (24, 31),
@@ -72,6 +100,46 @@ name(::Type{CoreSelectRegister}) = "Core Event Select Register"
 defaults(::Type{CoreSelectRegister}) = (usr = true, os = true, en = true)
 
 ### Uncore Select
+"""
+    UncoreSelectRegister(; kw...)
+
+Construct a bitmask for programming `Uncore` level counters.
+
+Keywords
+========
+
+- `event::UInt`: Select event to be counted. Default: `0x00`
+- `umask::UInt`: Select subevents to be counted within the selected event. Default: `0x00`
+- `reset::Bool`: When set to 1, the corresponding counter will be cleared to 0. Default: `false`
+- `edge_detact::Bool`: When set to 1, rather than measuring the event in each cycle it is
+    active, the corresponding counter will increment when a 0 to 1 transition (i.e. rising edge)
+    is detected.
+
+    When 0, the counter will increment in each cycle that the event is asserted.
+
+    NOTE: `edge_detect` is in series following `thresh`, Due to this, the `thresh` field
+    must be set to a non-0 value. For events that increment by no more than 1 per cycle,
+    set `thresh` to 0x1. Default: `false`.
+- `overflow_enable::Bool`: When this bit is set to 1 and the corresponding counter overflows,
+    an overflow message is sent to the UBox’s global logic. The message identifies the unit
+    that sent it. Default: `false`.
+- `en::Bool`: Local Counter Enable. Default: `true`.
+- `invert::Bool`: Invert comparison against Threshold.
+
+    0 - comparison will be ‘is event increment >= threshold?’.
+
+    1 - comparison is inverted - ‘is event increment < threshold?’
+
+    e.g. for a 64-entry queue, if SW wanted to know how many cycles the queue had fewer
+    than 4 entries, SW should set the threshold to 4 and set the invert bit to 1.
+    Default: `false`.
+- `thresh::UInt`: Threshold is used, along with the invert bit, to compare against the
+    counter’s incoming increment value. i.e. the value that will be added to the counter.
+
+    For events that increment by more than 1 per cycle, if the threshold is set to a value
+    greater than 1, the data register will accumulate instances in which the event
+    increment is >= threshold. Default: `0x00`.
+"""
 struct UncoreSelectRegister <: BitField
     val::UInt64
 end
@@ -94,6 +162,9 @@ name(::Type{UncoreSelectRegister}) = "Uncore Event Select Register"
 defaults(::Type{UncoreSelectRegister}) = (en = true,)
 
 ### CHA Filter 0
+"""
+    CHAFilter0(; kw...)
+"""
 struct CHAFilter0 <: BitField
     val::UInt64
 end
@@ -119,6 +190,9 @@ defaults(::Type{CHAFilter0}) = (
 )
 
 # ### CHA Filter 1
+"""
+    CHAFilter1(; kw...)
+"""
 struct CHAFilter1 <: BitField
     val::UInt64
 end
