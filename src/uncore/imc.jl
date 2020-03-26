@@ -46,7 +46,6 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = t
         events,
     )
 
-    @show typeof(monitor)
     IMC_RESERVATION[] = true
 
     # Clean up after ourselves
