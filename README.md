@@ -8,7 +8,7 @@ A Julia package for configuring and reading Intel x86 performance counters with 
 
 ## Installation
 
-This is not a registerd Julia package.
+This is not a registered Julia package.
 To install, use
 ```julia
 julia> using Pkg
