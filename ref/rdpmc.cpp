@@ -11,5 +11,6 @@ int main (int argc, char* argv[])
 {
     uint64_t count = get_cycles();
     std::cout << "Count: " << count << std::endl;
+    _mm_sfence();
     return 0;
 }
