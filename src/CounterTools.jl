@@ -48,6 +48,8 @@ include("bitfield.jl")
 include("core/core.jl")
 include("uncore/uncore.jl")
 
+include("group.jl")
+
 #####
 ##### API Documentation
 #####
