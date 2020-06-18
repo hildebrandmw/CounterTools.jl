@@ -5,6 +5,7 @@ mutable struct IMCMonitor{T,N} <: AbstractMonitor
     # Within each controller, we have one entry for each channel.
     imcs::Record{:socket,T}
     events::NTuple{N, UncoreSelectRegister}
+    cleaned::Bool
 end
 
 """
@@ -16,6 +17,7 @@ operations.  Argument `event` should be a `Tuple` of [`CounterTools.UncoreSelect
 and `socket` should be either an `Integer` or `IndexZero`.
 """
 function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = true) where {N}
+
     # Check to see if we already have an active monitor.
     if IMC_RESERVATION[]
         error("An active IMC Monitor already exists!")
@@ -44,14 +46,18 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = t
     monitor = IMCMonitor(
         imcs,
         events,
+        false,
     )
 
     IMC_RESERVATION[] = true
 
     # Clean up after ourselves
     finalizer(monitor) do x
-        reset!(x)
-        IMC_RESERVATION[] = false
+        x.cleaned || cleanup(monitor)
+        if !x.cleaned
+            reset!(x)
+            IMC_RESERVATION[] = false
+        end
     end
 
     program && program!(monitor)
@@ -72,5 +78,15 @@ function program(x::IMCUncorePMU, events)
 end
 
 reset!(monitor::IMCMonitor) = mapleaves(reset!, monitor)
-Base.read(monitor::IMCMonitor{T,N}) where {T,N} = mapleaves(getallcounters, monitor)
+function Base.read(monitor::IMCMonitor{T,N}) where {T,N}
+    monitor.cleaned && error("Trying to measure a cleaned IMC Monitor")
+    return mapleaves(getallcounters, monitor)
+end
+
+function cleanup(monitor::IMCMonitor)
+    reset!(monitor)
+    IMC_RESERVATION[] = false
+    monitor.cleaned = true
+    return nothing
+end
 
