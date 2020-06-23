@@ -26,8 +26,8 @@ value(x::CounterValue) = x.value
 Base.iszero(x::CounterValue) = iszero(x.value)
 
 function Base.:-(x::CounterValue, y::CounterValue)
-    # Test if overflow happened, add a large fixed value.
-    start = value(x) < value(y) ? (UInt(1) << 47) : zero(UInt64)
+    # Test if overflow happend.
+    start = (value(x) < value(y)) ? (UInt(1) << 48) : zero(UInt)
     return convert(Int, start + value(x) - value(y))
 end
 
