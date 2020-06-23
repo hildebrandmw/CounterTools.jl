@@ -54,10 +54,6 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = t
     # Clean up after ourselves
     finalizer(monitor) do x
         x.cleaned || cleanup(monitor)
-        if !x.cleaned
-            reset!(x)
-            IMC_RESERVATION[] = false
-        end
     end
 
     program && program!(monitor)

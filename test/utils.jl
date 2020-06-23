@@ -48,5 +48,5 @@ end
     a = CounterValue(10)
     b = CounterValue(20)
     @test b - a == 10
-    @test a - b == 2^28 - 10
+    @test a - b == 2^47 - 10
 end
