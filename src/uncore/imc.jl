@@ -9,15 +9,22 @@ mutable struct IMCMonitor{T,N} <: AbstractMonitor
 end
 
 """
-    IMCMonitor(events, socket; [program = true])
+    IMCMonitor(events, socket; [program = true, finalize = true])
 
 Monitor the Integrated Memory Controller (IMC) for `events` on a **single**
 selected CPU `socket`. This can gather information such as number of DRAM read and write
 operations.  Argument `event` should be a `Tuple` of [`CounterTools.UncoreSelectRegister`](@ref)
 and `socket` should be either an `Integer` or `IndexZero`.
-"""
-function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = true) where {N}
 
+If `finalize = true` is passed, a finalizer will be attached to the `IMCMonitor` to clean
+up the hardware counter's state.
+"""
+function IMCMonitor(
+        events::NTuple{N, UncoreSelectRegister},
+        socket;
+        program = true,
+        finalize = true,
+    ) where {N}
     # Check to see if we already have an active monitor.
     if IMC_RESERVATION[]
         error("An active IMC Monitor already exists!")
@@ -52,9 +59,7 @@ function IMCMonitor(events::NTuple{N, UncoreSelectRegister}, socket; program = t
     IMC_RESERVATION[] = true
 
     # Clean up after ourselves
-    finalizer(monitor) do x
-        x.cleaned || cleanup(monitor)
-    end
+    finalize && finalizer(cleanup, monitor)
 
     program && program!(monitor)
     return monitor
@@ -80,9 +85,13 @@ function Base.read(monitor::IMCMonitor{T,N}) where {T,N}
 end
 
 function cleanup(monitor::IMCMonitor)
-    reset!(monitor)
-    IMC_RESERVATION[] = false
-    monitor.cleaned = true
+    if !monitor.cleaned
+        # Close any open PCI file handles
+        reset!(monitor)
+        IMC_RESERVATION[] = false
+        mapleaves(close, monitor)
+        monitor.cleaned = true
+    end
     return nothing
 end
 

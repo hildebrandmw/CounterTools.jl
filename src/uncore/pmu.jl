@@ -58,6 +58,7 @@ struct IMCUncorePMU <: AbstractUncorePMU
 end
 IMCUncorePMU(handle::Handle) = IMCUncorePMU(handle, zeros(UInt8, numbytes(IMC())))
 pmutype(::IMCUncorePMU) = IMC()
+Base.close(x::IMCUncorePMU) = close(x.handle)
 
 ##### CHA Uncore PMU
 # PMU implementation for monitoring the CHA
@@ -82,6 +83,7 @@ end
 
 pmutype(::CHAUncorePMU) = CHA()
 unpack(x::CHAUncorePMU) = (x.cha,)
+Base.close(x::CHAUncorePMU) = close(x.handle)
 
 #####
 ##### Low level accessing functions

@@ -28,6 +28,10 @@ Base.iszero(x::CounterValue) = iszero(x.value)
 function Base.:-(x::CounterValue, y::CounterValue)
     # Test if overflow happend.
     start = (value(x) < value(y)) ? (UInt(1) << 48) : zero(UInt)
+    if (value(x) < value(y))
+        @show value(x)
+        @show value(y)
+    end
     return convert(Int, start + value(x) - value(y))
 end
 
