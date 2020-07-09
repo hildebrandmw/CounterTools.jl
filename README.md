@@ -26,7 +26,7 @@ julia> using CounterTools
 We need to build up a tuple of events to monitor on the performance counters.
 
 These events are selected using an 8-bit event code and an 8-bit umask
-See https://download.01.com/perfmon for event codes.
+See https://download.01.org/perfmon/ for event codes.
 ```julia
 julia> events = (
     # FP_ARITH_INST_RETIRED.SCALAR_DOUBLE
