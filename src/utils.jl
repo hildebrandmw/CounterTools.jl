@@ -84,6 +84,13 @@ end
 ##### Reading from Counters
 #####
 
+# Fixed counter values.
+@enum FixedCounter::Int64 begin
+    RetiredInstructions = 0
+    ClockUnhaltedThread = 1
+    ClockUnhaltedCore = 2
+end
+
 # This path goes through MSRs and is expected to be much much slower than the rdpmc
 # based instructions.
 readcounter(cpu, counter::INDEX_TYPES) = CounterValue(readmsr(cpu, PMC_MSRS[counter]))
@@ -97,12 +104,14 @@ If `i` is in 2^30, 2^30+1, or 2^30 + 2, a fixed function counter is read.
 
 This function is unsafe since reading from an illegal value will recklessly segfault.
 """
-function unsafe_rdpmc(i::INDEX_TYPES)
+function unsafe_rdpmc(i::Union{Integer,IndexZero,FixedCounter})
     high, low = unsafe_partial_rdpmc(i)
     return CounterValue((widen(high) << 32) | low)
 end
 
 unsafe_partial_rdpmc(i::Integer) = unsafe_partial_rdpmc(indexzero(i))
+unsafe_partial_rdpmc(i::FixedCounter) = unsafe_partial_rdpmc(IndexZero(2^30 + Int64(i)))
+
 function unsafe_partial_rdpmc(i::IndexZero)
     Base.@_inline_meta
     # This is reverse engineered from `ref.cpp` in the `ref/` directory and from Julia's
