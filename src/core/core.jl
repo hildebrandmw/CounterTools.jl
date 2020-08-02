@@ -82,10 +82,13 @@ function program(cpu, counter, reg::CoreSelectRegister)
 end
 
 # When programming fixed counters, we need to set the enable bits in IA32_FIXED_CTR_CTRL_MSR
-function program(cpu, event::FixedCounter)
-    bitmask = UInt(0x3) << (4 * Int(event))
-    v = readmsr(cpu, IA32_FIXED_CTR_CTRL_MSR)
-    writemsr(cpu, IA32_FIXED_CTR_CTRL_MSR, v | bitmask)
+program(cpu, ::Tuple{}) = nothing
+function program(cpu, events::NTuple{<:Any, FixedCounter})
+    v = zero(UInt)
+    for event in events
+        v |= UInt(0x3) << (4 * Int(event))
+    end
+    writemsr(cpu, IA32_FIXED_CTR_CTRL_MSR, v)
     return nothing
 end
 
@@ -99,9 +102,8 @@ function program!(M::CoreMonitor)
             program(cpu, i, event)
         end
 
-        for event in M.fixed_events
-            program(cpu, event)
-        end
+        # Enable fixed counters
+        program(cpu, M.fixed_events)
     end
     M.isrunning = true
     return nothing
