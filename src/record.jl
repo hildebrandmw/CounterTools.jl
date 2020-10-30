@@ -46,6 +46,8 @@ end
 
 # Applying a difference to two subsequent records
 Base.:-(a::R, b::R) where {R <: Record} = mapleaves(-, a, b)
+Base.:+(a::R, b::R) where {R <: Record} = mapleaves(+, a, b)
+mapleaves(f) = (x...) -> mapleaves(f, x...)
 
 # Aggregate across records
 """
