@@ -5,6 +5,10 @@ fields(x::BitField)     = fields(typeof(x))
 name(x::BitField)       = name(typeof(x))
 defaults(x::BitField)   = defaults(typeof(x))
 value(x::BitField)      = x.val
+Base.convert(::Type{T}, x::T) where {T <: BitField} = x
+
+Base.:(==)(x::BitField, y::BitField) = value(x) == value(y)
+Base.hash(x::BitField, u::UInt = UInt(0x12038497)) = hash(value(x), u)
 
 (::Type{T})(;kw...) where {T <: BitField} = construct(T, (;kw...))
 
