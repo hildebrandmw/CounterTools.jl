@@ -45,8 +45,8 @@ end
 end
 
 @testset "Counter Values" begin
-    a = CounterValue(10)
-    b = CounterValue(20)
-    @test b - a == 10
-    @test a - b == 2^47 - 10
+    # a = CounterTools.CounterValue(10)
+    # b = CounterTools.CounterValue(20)
+    # @test b - a == 10
+    # @test a - b == 2^47 - 10
 end

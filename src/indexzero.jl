@@ -16,6 +16,8 @@ struct IndexZero{T <: Integer}
     val::T
 end
 
+IndexZero(x::IndexZero) = x
+
 """
     value(x::IndexZero)
 
