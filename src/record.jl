@@ -1,6 +1,8 @@
 mapleaves(f::F, X...) where {F} = f(X...)
-mapleaves(f::F, X::Tuple...) where {F} = map((x...) -> mapleaves(f, x...), X...)
+mapleaves(f::F, X::NTuple{N,T}...) where {F,N,T} = ntuple(i -> mapleaves(f, _getindex(X, i)...), Val(N))
 mapleaves(f::F, X::AbstractArray...) where {F} = map((x...) -> mapleaves(f, x...), X...)
+
+_getindex(X::NTuple{K,NTuple{N,T}}, i) where {K,N,T} = ntuple(j -> X[j][i], Val(K))
 
 #####
 ##### Record Type for keeping track of what we're measuring
@@ -41,8 +43,11 @@ This will recursively descend through hierarchies of `Records` and only apply `f
 The returned result will have the same hierarchical structure as `record`
 """
 function mapleaves(f, R::Record{name}...) where {name}
-    return Record{name}(denest(mapleaves(f, getproperty.(R, :data)...)))
+    return Record{name}(denest(mapleaves(f, _getdata(R...)...)))
 end
+
+_getdata(x::Record, y::Record...) = (x.data, _getdata(y...)...)
+_getdata() = ()
 
 # Applying a difference to two subsequent records
 Base.:-(a::R, b::R) where {R <: Record} = mapleaves(-, a, b)

@@ -81,12 +81,12 @@ end
     # Compile the reading test program.
     ntimes = 10
     array_size = 10^7
-    compile_test_program("read.cpp", ntimes = ntimes, array_size = array_size)
+    compile_test_program("read", ntimes = ntimes, array_size = array_size)
 
     pre = read(monitor)
     # NOTE: This is running on numanode zero, so we'll look at the results
     # from Socket 0 for testing purposes
-    run_test_program("read.cpp")
+    run_test_program()
     post = read(monitor)
 
     # Reset the monitor so we don't clobber anything on subsequent runs.
@@ -127,11 +127,11 @@ end
     @test socket_0[3] <= 1.2 * expected_write_actions
 
     ##### Write Test
-    compile_test_program("write.cpp", ntimes = ntimes, array_size = array_size)
+    compile_test_program("write", ntimes = ntimes, array_size = array_size)
     CounterTools.program!(monitor)
 
     pre = read(monitor)
-    run_test_program("write.cpp")
+    run_test_program()
     post = read(monitor)
     CounterTools.reset!(monitor)
 
@@ -163,18 +163,18 @@ end
     #####
 
     # Finally, lets run our modified version of the STREAM benchmark
-    compile_test_program("STREAM.cpp", ntimes = ntimes, array_size = array_size)
+    compile_test_program("copy", ntimes = ntimes, array_size = array_size)
     CounterTools.program!(monitor)
 
     pre = read(monitor)
-    run_test_program("STREAM.cpp")
+    run_test_program()
     post = read(monitor)
     CounterTools.reset!(monitor)
 
     socket_0 = CounterTools.aggregate(post - pre)
 
     # Expect 5 times through the array for both read and write
-    expected_read_bytes =  5 * array_size * 64 * ntimes
+    expected_read_bytes =  array_size * 64 * ntimes
     expected_read_actions = div(expected_read_bytes, 64)
     expected_write_actions = expected_read_actions
 
