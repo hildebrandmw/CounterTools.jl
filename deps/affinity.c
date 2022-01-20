@@ -1,7 +1,6 @@
 #define _GNU_SOURCE
 #include "affinity.h"
 #include <sched.h>
-//#include <cstdint>
 #include <stdlib.h>
 
 void* jl_get_affinity(int64_t pid)
