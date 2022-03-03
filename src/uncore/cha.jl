@@ -129,11 +129,11 @@ function cha_masks(socket = nothing)
 
         pci = Handle(path)
         #  check that the vendor is Intel
-        seek(pci, 0)
-        (read(pci, UInt32) & VENDOR_ID_MASK) == DRV_IS_PCI_VENDOR_ID_INTEL || continue
+        #seek(pci, 0)
+        (read(pci, UInt32, IndexZero(0)) & VENDOR_ID_MASK) == DRV_IS_PCI_VENDOR_ID_INTEL || continue
 
-        seek(pci, 0x9C)
-        value = read(pci, UInt32)
+        #seek(pci, 0x9C)
+        value = read(pci, UInt32, IndexZero(0x9C))
         push!(socket_to_number, value)
     end
     return isnothing(socket) ? socket_to_number : socket_to_number[socket]

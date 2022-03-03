@@ -4,8 +4,10 @@ authors = ["Mark Hildebrand <mhildebrand@ucdavis.edu>"]
 version = "0.1.0"
 
 [deps]
+Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [compat]
 julia = "1"

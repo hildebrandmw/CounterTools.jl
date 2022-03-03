@@ -1,8 +1,28 @@
-mapleaves(f::F, X...) where {F} = f(X...)
-mapleaves(f::F, X::NTuple{N,T}...) where {F,N,T} = ntuple(i -> mapleaves(f, _getindex(X, i)...), Val(N))
-mapleaves(f::F, X::AbstractArray...) where {F} = map((x...) -> mapleaves(f, x...), X...)
+struct MapLeaves{F}
+    f::F
+end
+MapLeaves(f::MapLeaves) = f
 
-_getindex(X::NTuple{K,NTuple{N,T}}, i) where {K,N,T} = ntuple(j -> X[j][i], Val(K))
+struct MapLeavesIndex{F,Args}
+    f::F
+    args::Args
+end
+
+MapLeavesIndex(f::MapLeaves{F}, args::Args) where {F,Args} = MapLeavesIndex{F,Args}(f.f, args)
+MapLeaves(f::MapLeavesIndex{F}) where {F} = MapLeaves{F}(f.f)
+
+(f::MapLeavesIndex)(i::Integer) = MapLeaves(f)(getindex.(f.args, i)...)
+(f::MapLeaves)(x...) = f.f(x...)
+@generated function (f::MapLeaves)(x::Vararg{NTuple{N,T}, K}) where {N,T,K}
+    getters = map(Base.OneTo(N)) do i
+        exprs = [:(x[$j][$i]) for j in Base.OneTo(K)]
+        return :(f($(exprs...)))
+    end
+    return :(($(getters...),))
+end
+(f::MapLeaves)(x::AbstractArray...) = map(f, x...)
+
+mapleaves(f::F, x...) where {F} = MapLeaves(f)(x...)
 
 #####
 ##### Record Type for keeping track of what we're measuring
@@ -18,6 +38,7 @@ struct Record{name,T <: Union{Vector, NTuple}}
     data::T
 end
 Record{name}(data::T) where {name,T} = Record{name,T}(data)
+Record{name}(data::Tuple{Tuple}) where {name} = Record{name}(data[1])
 
 name(R::Record{N}) where {N} = N
 
@@ -42,12 +63,10 @@ This will recursively descend through hierarchies of `Records` and only apply `f
 
 The returned result will have the same hierarchical structure as `record`
 """
-function mapleaves(f, R::Record{name}...) where {name}
-    return Record{name}(denest(mapleaves(f, _getdata(R...)...)))
+@generated function (f::MapLeaves)(R::Vararg{Record{name},N}) where {name,N}
+    getters = [:(R[$i].data) for i in Base.OneTo(N)]
+    return :(Record{name}(f($(getters...))))
 end
-
-_getdata(x::Record, y::Record...) = (x.data, _getdata(y...)...)
-_getdata() = ()
 
 # Applying a difference to two subsequent records
 Base.:-(a::R, b::R) where {R <: Record} = mapleaves(-, a, b)

@@ -26,12 +26,17 @@ numcounters(x) = numcounters(pmutype(x))
 numbytes(x) = numbytes(pmutype(x))
 
 ### Integrated Memory Controller
-struct IMC <: PMUType end
-_unitstatus(::IMC)    = IndexZero(0xF8)
-_unitcontrol(::IMC)   = IndexZero(0xF4)
-_counter(::IMC, i)    = IndexZero(0xA0 + value(i) * 0x8)
-_control(::IMC, i)    = IndexZero(0xD8 + value(i) * 0x4)
+struct IMC{T <: AbstractCPU} <: PMUType end
+_unitstatus(::IMC{SkylakeServer})    = IndexZero(0xF8)
+_unitcontrol(::IMC{SkylakeServer})   = IndexZero(0xF4)
+_counter(::IMC{SkylakeServer}, i)    = IndexZero(0xA0 + value(i) * 0x8)
+_control(::IMC{SkylakeServer}, i)    = IndexZero(0xD8 + value(i) * 0x4)
 numcounters(::IMC) = 4
+
+# For now, only read the fixed counters for IceLake servers.
+# There are 4 such counters, starting at address 0x2290 and they are
+# DRAM Read, DRAM Write, PM Read, and PM Write respectively
+_counter(::IMC{IcelakeServer}, i) = IndexZero(0x2290 + value(i) * 0x8)
 
 ### CHA Counters
 struct CHA <: PMUType end
@@ -54,11 +59,20 @@ struct IMCUncorePMU <: AbstractUncorePMU
 
     # Pre-allocated buffer for reading new counter values.
     # We return counter values as a tuple for even better performance.
-    buffer::Vector{UInt8}
+    # buffer::Vector{UInt8}
 end
-IMCUncorePMU(handle::Handle) = IMCUncorePMU(handle, zeros(UInt8, numbytes(IMC())))
-pmutype(::IMCUncorePMU) = IMC()
+unwrap(x::IMCUncorePMU) = x.handle
+pmutype(::IMCUncorePMU) = IMC{SkylakeServer}()
 Base.close(x::IMCUncorePMU) = close(x.handle)
+
+# IceLake IMC PMU
+# For now - only return the free-running counters
+struct IMCUncoreICX <: AbstractUncorePMU
+    mmio::MMIO
+end
+unwrap(x::IMCUncoreICX) = x.mmio
+pmutype(::IMCUncoreICX) = IMC{IcelakeServer}()
+Base.close(::IMCUncoreICX) = nothing
 
 ##### CHA Uncore PMU
 # PMU implementation for monitoring the CHA
@@ -81,6 +95,7 @@ struct CHAUncorePMU <: AbstractUncorePMU
     end
 end
 
+unwrap(x::CHAUncorePMU) = x.handle
 pmutype(::CHAUncorePMU) = CHA()
 unpack(x::CHAUncorePMU) = (x.cha,)
 Base.close(x::CHAUncorePMU) = close(x.handle)
@@ -90,48 +105,39 @@ Base.close(x::CHAUncorePMU) = close(x.handle)
 #####
 
 function setunitstatus!(U::AbstractUncorePMU, v)
-    seek(U.handle, unitstatus(U))
-    write(U.handle, convert(writetype(U), v))
+    write(unwrap(U), convert(writetype(U), v), unitstatus(U))
 end
 
 function getunitstatus(U::AbstractUncorePMU)
-    seek(U.handle, unitstatus(U))
-    return read(U.handle, UInt32)
+    return read(unwrap(U), UInt32, unitstatus(U))
 end
 
 function setunitcontrol!(U::AbstractUncorePMU, v)
-    seek(U.handle, unitcontrol(U))
-    write(U.handle, convert(writetype(U), v))
+    write(unwrap(U), convert(writetype(U), v), unitcontrol(U))
 end
 
 function getunitcontrol(U::AbstractUncorePMU)
-    seek(U.handle, unitcontrol(U))
-    return read(U.handle, UInt32)
+    return read(unwrap(U), UInt32, unitcontrol(U))
 end
 
 function setcontrol!(U::AbstractUncorePMU, counter, v)
-    seek(U.handle, control(U, counter))
-    write(U.handle, convert(writetype(U), v))
+    write(unwrap(U), v, control(U, counter))
 end
 
 function getcontrol(U::AbstractUncorePMU, i)
-    seek(U.handle, control(U, i))
-    return read(U.handle, UInt32)
+    return read(unwrap(U), UInt32, control(U, i))
 end
 
 function getcounter(U::AbstractUncorePMU, i)
-    seek(U.handle, counter(U, i))
-    return CounterValue(read(U.handle, UInt64))
+    return CounterValue(read(unwrap(U), UInt64, counter(U, i)))
 end
 
 function setextra!(U::AbstractUncorePMU, i, v)
-    seek(U.handle, extras(U, i))
-    write(U.handle, convert(writetype(U), v))
+    write(unwrap(U), convert(writetype(U), v), extras(U, i))
 end
 
 function getextra(U::AbstractUncorePMU, i)
-    seek(U.handle, extras(U, i))
-    return read(U.handle, UInt32)
+    return read(unwrap(U), UInt32, extras(U, i))
 end
 
 #####
@@ -139,13 +145,7 @@ end
 #####
 
 function getallcounters(U::AbstractUncorePMU)
-    # Need to seek and read since MSR based registers don't automatically progress
-    # the position in the system file.
-    a = unsafe_read(U.handle, UInt64, counter(U, 1); buffer = U.buffer)
-    b = unsafe_read(U.handle, UInt64, counter(U, 2); buffer = U.buffer)
-    c = unsafe_read(U.handle, UInt64, counter(U, 3); buffer = U.buffer)
-    d = unsafe_read(U.handle, UInt64, counter(U, 4); buffer = U.buffer)
-    return CounterValue.((a, b, c, d))
+    return ntuple(i -> getcounter(U, i), Val(numcounters(U)))
 end
 
 function reset!(U::AbstractUncorePMU)

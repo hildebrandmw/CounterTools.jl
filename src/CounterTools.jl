@@ -1,5 +1,6 @@
 module CounterTools
 
+import Mmap
 using Libdl
 using Distributed
 

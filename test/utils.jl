@@ -50,3 +50,8 @@ end
     # @test b - a == 10
     # @test a - b == 2^47 - 10
 end
+
+# @testset "Testing MCFG" begin
+#     @test sizeof(CounterTools.MCFGRecord) == 16
+#     @test sizeof(CounterTools.MCFGHeader) == 44
+# end

@@ -1,3 +1,7 @@
+abstract type AbstractCPU end
+struct SkylakeServer <: AbstractCPU end
+struct IcelakeServer <: AbstractCPU end
+
 # Wrapper around CounterValues so subtraction automatically handles wrapping
 """
     CounterValue(x::UInt)
@@ -139,3 +143,83 @@ function unsafe_partial_rdpmc(i::IndexZero)
     return val
 end
 
+#####
+##### MMIO
+#####
+
+struct MMIO
+    mmap::Vector{UInt8}
+end
+Base.pointer(::Type{T}, mmio::MMIO) where {T} = Ptr{T}(pointer(mmio.mmap))
+
+function MMIO(address::IndexZero, len; path = "/dev/mem", read = true, write = false)
+    @show Int(len)
+    mmap = open(path; read, write) do io
+        @show Int(value(address))
+        return Mmap.mmap(io, Vector{UInt8}, (len,), value(address); grow = false)
+    end
+    @show pointer(mmap)
+    return MMIO(mmap)
+end
+
+# Very important to mark this function as `@noinline` to prevent compiler optimizations
+# from breaking what the memory mapped hardware actually wants to do.
+@noinline function Base.read(mmio::MMIO, ::Type{T}, offset::IndexZero) where {T}
+    return Base.unsafe_load(pointer(T, mmio) + value(offset))
+end
+
+@noinline function Base.write(mmio::MMIO, v::T, offset::IndexZero) where {T}
+    return Base.unsafe_store!(pointer(T, mmio) + value(offset))
+end
+
+# #####
+# ##### MCFG
+# #####
+#
+# struct MCFGRecord
+#     base_address::UInt64
+#     pci_segment_group_number::UInt16
+#     bus_start::UInt8
+#     bus_stop::UInt8
+#     reserved::NTuple{4,UInt8}
+# end
+#
+# struct MCFGHeader
+#     signature::NTuple{4,UInt8}
+#     length::UInt32
+#     revision::UInt8
+#     checksum::UInt8
+#     oem_id::NTuple{6,UInt8}
+#     oem_table_id::NTuple{8,UInt8}
+#     oem_revision::UInt32
+#     creator_id::UInt32
+#     creator_revision::UInt32
+#     reserved::NTuple{8,UInt8}
+# end
+#
+# function Base.length(header::MCFGHeader)
+#     return div(header.length - sizeof(header), sizeof(MCFGRecord))
+# end
+#
+# function mcfg_handle()
+#     paths = ("/sys/firmware/acpi/tables/MCFG", "/sys/firmware/acpi/tables/MCFG1")
+#     for path in Iterators.filter(ispath, paths)
+#         return Handle(path; write = false)
+#     end
+# end
+#
+# function get_mcfg()
+#     handle = mcfg_handle()
+#     header = Base.unsafe_read(handle, MCFGHeader, IndexZero(0))
+#     records = map(Base.OneTo(length(header))) do i
+#         offset = sizeof(header) + (i - 1) * sizeof(MCFGRecord)
+#         return Base.unsafe_read(handle, MCFGRecord, IndexZero(offset))
+#     end
+#     return records
+# end
+#
+# function match(record::MCFGRecord, _group, _bus)
+#     (; group, bus_start, bus_stop) = record
+#     return _group == group && in(_bus, bus_start:bus_stop)
+# end
+#

@@ -95,3 +95,72 @@ function cleanup(monitor::IMCMonitor)
     return nothing
 end
 
+#####
+##### IceLake Monitor
+#####
+
+# MMIO_BASE found at Bus U0, Device 0, Function 1, offset D0h.
+const ICX_IMC_MMIO_BASE_OFFSET = 0xd0
+const ICX_IMC_MMIO_BASE_MASK = 0x1FFFFFFF
+
+# MEM0_BAR found at Bus U0, Device 0, Function 1, offset D8h.
+const ICX_IMC_MMIO_MEM0_OFFSET = 0xd8
+const ICX_IMC_MMIO_MEM_STRIDE = 0x04
+const ICX_IMC_MMIO_MEM_MASK = 0x7FF
+
+# Each IMC has two channels. But there is addressing for three. Need to
+# determine which two channels are active on the system.
+# The offset starts from 0x22800 with stride 0x4000
+#
+const ICX_IMC_MMIO_CHN_OFFSET = 0x22800
+const ICX_IMC_MMIO_CHN_STRIDE = 0x4000
+# /* IMC MMIO size*/
+const ICX_IMC_MMIO_SIZE = 0x4000
+
+const SERVER_UBOX0_REGISTER_DEV_ADDR = 0
+const SERVER_UBOX0_REGISTER_FUNC_ADDR = 1
+
+
+struct IMCMonitorICXFixed{T} <: AbstractMonitor
+    imcs::Record{:socket,T}
+end
+
+function Base.show(io::IO, monitor::IMCMonitorICXFixed{T}) where {T}
+    print(io, "IMCMonitorICXFixed{", T, "}()")
+end
+
+function IMCMonitorICXFixed(socket::IndexZero)
+    # Check to see if we already have an active monitor.
+    if IMC_RESERVATION[]
+        error("An active IMC Monitor already exists!")
+    end
+
+    socket_to_bus = findbusses(;
+        device = SERVER_UBOX0_REGISTER_DEV_ADDR,
+        fn = SERVER_UBOX0_REGISTER_FUNC_ADDR,
+        device_ids = (0x3451,),
+    )
+    bus = socket_to_bus[socket]
+
+    handle = Handle(bus, SERVER_UBOX0_REGISTER_DEV_ADDR, SERVER_UBOX0_REGISTER_FUNC_ADDR)
+    mmio_base = read(handle, UInt32, IndexZero(ICX_IMC_MMIO_BASE_OFFSET))
+    imcs = ntuple(4) do controller
+        position = IndexZero(ICX_IMC_MMIO_MEM0_OFFSET + ICX_IMC_MMIO_MEM_STRIDE * (controller - 1))
+        offset = read(handle, UInt32, position)
+        address = |(
+            (mmio_base & ICX_IMC_MMIO_BASE_MASK) << 23,
+            (offset & ICX_IMC_MMIO_MEM_MASK) << 12,
+        )
+        mmio = MMIO(IndexZero(address), ICX_IMC_MMIO_SIZE)
+        pmu = IMCUncoreICX(mmio)
+        return Record{:channel}((pmu,))
+    end |> Record{:socket}
+
+    return IMCMonitorICXFixed(imcs)
+end
+
+# Implementation
+mapleaves(f::F, monitor::IMCMonitorICXFixed) where {F} = mapleaves(f, monitor.imcs)
+function Base.read(monitor::IMCMonitorICXFixed)
+    return mapleaves(getallcounters, monitor)
+end
