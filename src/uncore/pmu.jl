@@ -3,34 +3,34 @@ abstract type PMUType end
 pmutype(::T) where {T} = error("`pmutype` not defined for arguments of type $T")
 
 # Defaults
-_unitstatus(x::PMUType, i...)  = error("`unitstatus` undefined for $(typeof(x))")
+_unitstatus(x::PMUType, i...) = error("`unitstatus` undefined for $(typeof(x))")
 _unitcontrol(x::PMUType, i...) = error("`unitcontrol` undefined for $(typeof(x))")
-_counter(x::PMUType, i...)     = error("`counter` undefined for $(typeof(x))")
-_control(x::PMUType, i...)     = error("`control` undefined for $(typeof(x))")
-_extras(x::PMUType, i...)      = error("`extras` undefined for $(typeof(x))")
+_counter(x::PMUType, i...) = error("`counter` undefined for $(typeof(x))")
+_control(x::PMUType, i...) = error("`control` undefined for $(typeof(x))")
+_extras(x::PMUType, i...) = error("`extras` undefined for $(typeof(x))")
 
-writetype(x::PMUType) = UInt32
+writetype(::PMUType) = UInt32
 
-numcounters(x::PMUType)        = error("`numcounters` undefined for $(typeof(x))")
+numcounters(x::PMUType) = error("`numcounters` undefined for $(typeof(x))")
 numbytes(x::PMUType) = sizeof(UInt64) * numcounters(x)
 
-unpack(x) = ()
-unitstatus(x, i...)     = _unitstatus(pmutype(x), indexzero.((unpack(x)..., i...))...)
-unitcontrol(x, i...)    = _unitcontrol(pmutype(x), indexzero.((unpack(x)..., i...))...)
-counter(x, i...)        = _counter(pmutype(x), indexzero.((unpack(x)..., i...))...)
-control(x, i...)        = _control(pmutype(x), indexzero.((unpack(x)..., i...))...)
-extras(x, i...)         = _extras(pmutype(x), indexzero.((unpack(x)..., i...))...)
+unpack(_) = ()
+unitstatus(x, i...) = _unitstatus(pmutype(x), indexzero.((unpack(x)..., i...))...)
+unitcontrol(x, i...) = _unitcontrol(pmutype(x), indexzero.((unpack(x)..., i...))...)
+counter(x, i...) = _counter(pmutype(x), indexzero.((unpack(x)..., i...))...)
+control(x, i...) = _control(pmutype(x), indexzero.((unpack(x)..., i...))...)
+extras(x, i...) = _extras(pmutype(x), indexzero.((unpack(x)..., i...))...)
 writetype(x) = writetype(pmutype(x))
 
 numcounters(x) = numcounters(pmutype(x))
 numbytes(x) = numbytes(pmutype(x))
 
 ### Integrated Memory Controller
-struct IMC{T <: AbstractCPU} <: PMUType end
-_unitstatus(::IMC{SkylakeServer})    = IndexZero(0xF8)
-_unitcontrol(::IMC{SkylakeServer})   = IndexZero(0xF4)
-_counter(::IMC{SkylakeServer}, i)    = IndexZero(0xA0 + value(i) * 0x8)
-_control(::IMC{SkylakeServer}, i)    = IndexZero(0xD8 + value(i) * 0x4)
+struct IMC{T<:AbstractCPU} <: PMUType end
+_unitstatus(::IMC{SkylakeServer}) = IndexZero(0xF8)
+_unitcontrol(::IMC{SkylakeServer}) = IndexZero(0xF4)
+_counter(::IMC{SkylakeServer}, i::IndexZero) = IndexZero(0xA0 + value(i) * 0x8)
+_control(::IMC{SkylakeServer}, i::IndexZero) = IndexZero(0xD8 + value(i) * 0x4)
 numcounters(::IMC) = 4
 
 # For now, only read the fixed counters for IceLake servers.
@@ -40,11 +40,11 @@ _counter(::IMC{IcelakeServer}, i) = IndexZero(0x2290 + value(i) * 0x8)
 
 ### CHA Counters
 struct CHA <: PMUType end
-_unitstatus(::CHA, i)   = IndexZero(0xE07 + value(i) * 0x10)
-_unitcontrol(::CHA, i)  = IndexZero(0xE00 + value(i) * 0x10)
+_unitstatus(::CHA, i) = IndexZero(0xE07 + value(i) * 0x10)
+_unitcontrol(::CHA, i) = IndexZero(0xE00 + value(i) * 0x10)
 _counter(::CHA, cha, i) = IndexZero(0xE08 + value(cha) * 0x10 + value(i))
 _control(::CHA, cha, i) = IndexZero(0xE01 + value(cha) * 0x10 + value(i))
-_extras(x::CHA, cha, i) = IndexZero(0xE05 + value(cha) * 0x10 + value(i))
+_extras(::CHA, cha, i) = IndexZero(0xE05 + value(cha) * 0x10 + value(i))
 writetype(::CHA) = UInt64
 numcounters(::CHA) = 4
 
@@ -56,10 +56,6 @@ abstract type AbstractUncorePMU end
 struct IMCUncorePMU <: AbstractUncorePMU
     # A handle to the underlying
     handle::Handle
-
-    # Pre-allocated buffer for reading new counter values.
-    # We return counter values as a tuple for even better performance.
-    # buffer::Vector{UInt8}
 end
 unwrap(x::IMCUncorePMU) = x.handle
 pmutype(::IMCUncorePMU) = IMC{SkylakeServer}()
@@ -84,11 +80,7 @@ struct CHAUncorePMU <: AbstractUncorePMU
     buffer::Vector{UInt8}
 
     # Allow passing a buffer, or manually create one
-    function CHAUncorePMU(
-            handle::Handle,
-            cha,
-            buffer = zeros(UInt8, numbytes(CHA()))
-        )
+    function CHAUncorePMU(handle::Handle, cha, buffer = zeros(UInt8, numbytes(CHA())))
         resize!(buffer, numbytes(CHA()))
 
         return new(handle, indexzero(cha), buffer)
@@ -121,7 +113,7 @@ function getunitcontrol(U::AbstractUncorePMU)
 end
 
 function setcontrol!(U::AbstractUncorePMU, counter, v)
-    write(unwrap(U), v, control(U, counter))
+    return write(unwrap(U), convert(writetype(U), v), control(U, counter))
 end
 
 function getcontrol(U::AbstractUncorePMU, i)
