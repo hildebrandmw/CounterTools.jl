@@ -2,7 +2,6 @@ module CounterTools
 
 import Mmap
 using Libdl
-using Distributed
 
 const SRCDIR = @__DIR__
 const PKGDIR = dirname(SRCDIR)
@@ -48,12 +47,5 @@ include("affinity.jl")
 include("bitfield.jl")
 include("core/core.jl")
 include("uncore/uncore.jl")
-
-include("group.jl")
-
-#####
-##### API Documentation
-#####
-
 
 end # module

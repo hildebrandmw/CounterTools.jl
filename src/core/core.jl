@@ -8,7 +8,7 @@ mutable struct CoreMonitor{T,N,U} <: AbstractMonitor
     cpus::T
 
     # The events that we are collecting
-    events::NTuple{N, CoreSelectRegister}
+    events::NTuple{N,CoreSelectRegister}
     fixed_events::U
 
     # For cleaning up after ourselves
@@ -27,11 +27,11 @@ Arguments `events` should be a `Tuple` of [`CounterTools.CoreSelectRegister`](@r
 If `program == true`, then also program the performance counters to on each CPU.
 """
 function CoreMonitor(
-        events::NTuple{N, CoreSelectRegister},
-        cpus::T;
-        fixed_events = nothing,
-        program = true
-    ) where {T, N}
+    events::NTuple{N,CoreSelectRegister},
+    cpus::T;
+    fixed_events = nothing,
+    program = true,
+) where {T,N}
 
     # Make sure nothing crazy's going down!!
     if length(events) > numcounters()
@@ -46,7 +46,7 @@ function CoreMonitor(
 
     # Validate the fixed events
     if fixed_events !== nothing
-        if !isa(fixed_events, NTuple{U, FixedCounter} where {U})
+        if !isa(fixed_events, NTuple{U,FixedCounter} where {U})
             errmsg = """
                 Keyword argument `fixed_events` must either be `nothing` or a tuple of
                 `FixedCounter` enums.
@@ -58,7 +58,7 @@ function CoreMonitor(
     end
 
     # Build up the initial values list to save this for later.
-    initial_state = CounterState(;cpus = cpus)
+    initial_state = CounterState(; cpus = cpus)
     initial_affinity = getaffinity()
 
     # Get the original state of the hardware performance counters.
@@ -68,7 +68,7 @@ function CoreMonitor(
         fixed_events,
         initial_state,
         initial_affinity,
-        false
+        false,
     )
 
     finalizer(reset!, monitor)
@@ -82,8 +82,8 @@ function program(cpu, counter, reg::CoreSelectRegister)
 end
 
 # When programming fixed counters, we need to set the enable bits in IA32_FIXED_CTR_CTRL_MSR
-program(cpu, ::Tuple{}) = nothing
-function program(cpu, events::NTuple{<:Any, FixedCounter})
+program(_, ::Tuple{}) = nothing
+function program(cpu, events::NTuple{<:Any,FixedCounter})
     v = zero(UInt)
     for event in events
         v |= UInt(0x3) << (4 * Int(event))
@@ -109,7 +109,7 @@ function program!(M::CoreMonitor)
     return nothing
 end
 
-function Base.read(M::CoreMonitor{T, N}) where {T, N}
+function Base.read(M::CoreMonitor{T,N}) where {T,N}
     pid = getpid()
     results = map(M.cpus) do cpu
         # Set the affinity to this CPU

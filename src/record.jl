@@ -8,12 +8,13 @@ struct MapLeavesIndex{F,Args}
     args::Args
 end
 
-MapLeavesIndex(f::MapLeaves{F}, args::Args) where {F,Args} = MapLeavesIndex{F,Args}(f.f, args)
+MapLeavesIndex(f::MapLeaves{F}, args::Args) where {F,Args} =
+    MapLeavesIndex{F,Args}(f.f, args)
 MapLeaves(f::MapLeavesIndex{F}) where {F} = MapLeaves{F}(f.f)
 
 (f::MapLeavesIndex)(i::Integer) = MapLeaves(f)(getindex.(f.args, i)...)
 (f::MapLeaves)(x...) = f.f(x...)
-@generated function (f::MapLeaves)(x::Vararg{NTuple{N,T}, K}) where {N,T,K}
+@generated function (f::MapLeaves)(x::Vararg{NTuple{N,T},K}) where {N,T,K}
     getters = map(Base.OneTo(N)) do i
         exprs = [:(x[$j][$i]) for j in Base.OneTo(K)]
         return :(f($(exprs...)))
@@ -34,7 +35,7 @@ mapleaves(f::F, x...) where {F} = MapLeaves(f)(x...)
 Create a named `Record` around `data`.
 The elements of `data` may themselves be `Record`s, resulting in a hierarchical data structure.
 """
-struct Record{name,T <: Union{Vector, NTuple}}
+struct Record{name,T<:Union{Vector,NTuple}}
     data::T
 end
 Record{name}(data::T) where {name,T} = Record{name,T}(data)
@@ -69,11 +70,22 @@ The returned result will have the same hierarchical structure as `record`
 end
 
 # Applying a difference to two subsequent records
-Base.:-(a::R, b::R) where {R <: Record} = mapleaves(-, a, b)
-Base.:+(a::R, b::R) where {R <: Record} = mapleaves(+, a, b)
+Base.:-(a::R, b::R) where {R<:Record} = mapleaves(-, a, b)
+Base.:+(a::R, b::R) where {R<:Record} = mapleaves(+, a, b)
 mapleaves(f) = (x...) -> mapleaves(f, x...)
 
 # Aggregate across records
+struct Aggregate{F}
+    f::F
+end
+
+(f::Aggregate)(x) = x
+(f::Aggregate)(x, y) = f.f(x, y)
+(f::Aggregate)(x::Record) = f(x.data)
+const AggregateRecurseTypes =
+    Union{AbstractVector,NTuple{<:Any,<:Record},NTuple{<:Any,<:NTuple}}
+(f::Aggregate)(x::AggregateRecurseTypes) = reduce(f, map(f, x))
+
 """
     aggregate(record::Record)
     aggregate(f, record::Record)
@@ -81,14 +93,9 @@ mapleaves(f) = (x...) -> mapleaves(f, x...)
 Reduce over all the leaf (terminal) elements of `record`, applying `f` as the reduction function.
 If `f` is not supplied, it will defult to `(x,y) -> x .+ y`.
 """
-aggregate(f, X::Record) = aggregate(f, X.data)
-aggregate(f, X::Vector) = reduce(f, aggregate.(f, X))
-aggregate(f, X::NTuple{N,<:Record}) where {N} = reduce(f, aggregate.(f, X))
-aggregate(f, X::NTuple{N,<:NTuple}) where {N} = reduce(f, aggregate.(f, X))
-aggregate(f, X) = X
-
-# Default
-aggregate(X) = aggregate((x,y) -> x .+ y, X)
+aggregate(f::F, x) where {F} = Aggregate{F}(f)(x)
+aggregate(x) = aggregate(broadcast_add, x)
+broadcast_add(x, y) = x .+ y
 
 #####
 ##### Pretty Printing
