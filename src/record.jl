@@ -41,7 +41,7 @@ end
 Record{name}(data::T) where {name,T} = Record{name,T}(data)
 Record{name}(data::Tuple{Tuple}) where {name} = Record{name}(data[1])
 
-name(R::Record{N}) where {N} = N
+name(::Record{N}) where {N} = N
 
 # Check if there are records below this record.
 hassubrecord(R::Record) = eltype(R.data) <: Record
@@ -80,7 +80,7 @@ struct Aggregate{F}
 end
 
 (f::Aggregate)(x) = x
-(f::Aggregate)(x, y) = f.f(x, y)
+(f::Aggregate)(x, y) = f.f.(x, y)
 (f::Aggregate)(x::Record) = f(x.data)
 const AggregateRecurseTypes =
     Union{AbstractVector,NTuple{<:Any,<:Record},NTuple{<:Any,<:NTuple}}
@@ -94,8 +94,8 @@ Reduce over all the leaf (terminal) elements of `record`, applying `f` as the re
 If `f` is not supplied, it will defult to `(x,y) -> x .+ y`.
 """
 aggregate(f::F, x) where {F} = Aggregate{F}(f)(x)
-aggregate(x) = aggregate(broadcast_add, x)
-broadcast_add(x, y) = x .+ y
+aggregate(x) = aggregate(+, x)
+#broadcast_add(x, y) = x .+ y
 
 #####
 ##### Pretty Printing
