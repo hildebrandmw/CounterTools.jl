@@ -122,7 +122,7 @@ function cha_masks(socket = nothing)
     device = 30
     fn = 3
 
-    socket_to_mask = UInt32[]
+    socket_to_number = UInt32[]
     for bus in bus_numbers
         path = pcipath(bus, device, fn)
         ispath(path) || continue
